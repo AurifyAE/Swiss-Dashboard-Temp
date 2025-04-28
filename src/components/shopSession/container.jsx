@@ -779,7 +779,7 @@ export default function ProductManagement() {
                       {product.description}
                     </td>
                     <td className="py-3 px-4">
-                      ${Number(product.price).toFixed(2)}
+                      AED {Number(product.price).toFixed(2)}
                     </td>
                     <td className="py-3 px-4">{product.weight}</td>
                     <td className="py-3 px-4">{product.purity}</td>
