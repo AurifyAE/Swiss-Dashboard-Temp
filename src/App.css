@@ -1,0 +1,24 @@
+
+
+.gradient-border {
+  position: relative;
+  width: 55px;
+  height: 55px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(to right, #156AEF, #32B4DB);
+  padding: 2px; /* This is your border thickness */
+  cursor: pointer;
+}
+
+.gradient-border-inner {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: white; /* Inner white background */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
