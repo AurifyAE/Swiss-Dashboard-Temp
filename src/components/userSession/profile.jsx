@@ -46,7 +46,7 @@ const ProfilePage = () => {
 
   // Helper function to format balance with sign
   const formatBalance = (balance, type = "cash") => {
-    console.log(balance);
+    // console.log(balance);
     // Determine sign and absolute value
     const sign = balance >= 0 ? "+" : "-";
     const absBalance = Math.abs(balance);

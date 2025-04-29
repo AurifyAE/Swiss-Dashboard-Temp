@@ -307,7 +307,7 @@ export default function ProductManagement() {
     // setError(null);
 
     try {
-      const response = await axios.get(`/spotrates/${adminId}`);
+      const response = await axiosInstance.get(`/spotrates/${adminId}`);
       const spotData = response.data;
 
       setSpotRates({

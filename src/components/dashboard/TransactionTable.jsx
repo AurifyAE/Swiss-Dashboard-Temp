@@ -668,9 +668,9 @@ const TransactionRow = ({
     "Approval Pending": "bg-blue-100 text-[#0790E6]",
   };
 
-  const handleViewProfile = (userId) => {
-    console.log("first");
-    navigate(`/profile/${userId}`);
+  const handleViewProfile = (customer) => {
+    // console.log(customer);
+    navigate(`/profile/${customer.id}`);
   };
 
   // Updated function to determine if the reject button should be shown
@@ -775,7 +775,7 @@ const TransactionRow = ({
         {/* Actions column */}
         <div className="flex items-center justify-end gap-2">
           <button
-            onClick={() => handleViewProfile(customer.id)}
+            onClick={() => handleViewProfile(customer)}
             className="px-6 py-2 bg-gradient-to-r from-[#32B4DB] to-[#156AEF] text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
           >
             View
@@ -1091,7 +1091,7 @@ const TransactionTable = ({
     try {
       const response = await axiosInstance.get(`/booking/${adminId}`);
       const newOrders = response.data.orderDetails;
-      console.log("API Response:", newOrders);
+      // console.log("API Response:", newOrders);
 
       // Create an array to store all products from all transactions
       let allProducts = [];
@@ -1100,6 +1100,7 @@ const TransactionTable = ({
       const transformedOrders = newOrders.map((order) => {
         // Extract and normalize customer data
         const customerData = {
+          id: order.customer?.id || order.userId || "N/A", 
           name: order.customer?.name || order.userName || "N/A",
           email: order.customer?.email || order.userEmail || "N/A",
           contact:
@@ -1208,6 +1209,8 @@ const TransactionTable = ({
         (timeFilter === "This Year" &&
           new Date(transaction.date).getFullYear() ===
             new Date().getFullYear());
+
+      // console.log(transaction.customer);
 
       const isStatusMatch =
         !statusFilter ||

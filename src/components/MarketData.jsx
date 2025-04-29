@@ -32,7 +32,7 @@ export default function useMarketData(symbols = ["GOLD"]) {
     });
 
     socket.on("market-data", handleMarketData);
-    socket.on("error", (error) => console.error("❌ WebSocket error:", error));
+    // socket.on("error", (error) => console.error("❌ WebSocket error:", error));
 
     return () => {
       // console.log("🔌 Disconnecting WebSocket...");

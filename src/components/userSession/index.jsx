@@ -91,7 +91,7 @@ const CategoryManagement = ({
   };
 
   const handleViewCategory = (category) => {
-    console.log(category);
+    // console.log(category);
     // navigate(`/user-spot-rate/${user.userSpotRateId}/user/${user._id}/product`);
     navigate(`/users-category?categoryId=${category._id}&userId=${category.createdBy}`)
   };
@@ -255,7 +255,7 @@ const UserDataTable = ({
     setPage(newPage);
   };
 
-  console.log(userData)
+  // console.log(userData)
 
   const handleChangeRowsPerPage = (event) => {
     setRowsPerPage(+event.target.value);
