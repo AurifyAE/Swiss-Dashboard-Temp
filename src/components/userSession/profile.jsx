@@ -35,7 +35,7 @@ const ProfilePage = () => {
 
   // Purity options for gold
   const purityOptions = [
-    { value: 1, label: "9999" },
+    { value: 99999, label: "9999" },
     { value: 999, label: "999" },
     { value: 995, label: "995" },
     { value: 916, label: "916" },
@@ -117,6 +117,11 @@ const ProfilePage = () => {
     fetchUserProfile();
   }, [userId]);
 
+  const calculatePurityPower = (purityInput) => {
+    if (!purityInput || isNaN(purityInput)) return 1;
+    return purityInput / Math.pow(10, purityInput.toString().length);
+  };
+
   // Calculate gold value based on weight and purity
   const calculateGoldValue = () => {
     try {
@@ -136,7 +141,7 @@ const ProfilePage = () => {
       }
 
       // Calculate pure gold value
-      const pureGoldValue = (selectedPurity.value / 10000) * weightNum;
+      const pureGoldValue = calculatePurityPower(selectedPurity.value) * weightNum;
       const roundedValue = parseFloat(pureGoldValue.toFixed(3));
 
       setCalculatedGoldValue(roundedValue);

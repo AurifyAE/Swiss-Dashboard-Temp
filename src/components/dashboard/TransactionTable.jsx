@@ -747,6 +747,7 @@ const TransactionRow = ({
                     "Success",
                     "UserApprovalPending",
                     "Processing",
+                    "Approved",
                   ].map((statusOption) => (
                     <li
                       key={statusOption}

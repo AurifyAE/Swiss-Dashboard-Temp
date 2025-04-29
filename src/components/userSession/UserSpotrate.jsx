@@ -325,43 +325,49 @@ export default function ProductManagement() {
   // Price calculation function that uses the fetched spot rates
   const priceCalculation = (product) => {
     // Return 0 if missing required data
-    if (
-      !product ||
-      !marketData?.bid ||
-      !product.purity ||
-      !product.weight
-    ) {
+    if (!product || !marketData?.bid || !product.purity || !product.weight) {
       return 0;
     }
 
     const troyOunceToGram = 31.103;
     const conversionFactor = 3.674;
-    
+
     // Calculate bidding price using the formula:
     // bid + goldBidSpread + goldAskSpread + 0.5 = biddingPrice
-    let biddingPrice = marketData.bid + (spotRates.goldBidSpread || 0) + (spotRates.goldAskSpread || 0) + 0.5;
+    let biddingPrice =
+      marketData.bid +
+      (spotRates.goldBidSpread || 0) +
+      (spotRates.goldAskSpread || 0) +
+      0.5;
     // console.log(biddingPrice)
 
-    let adjustedBid = biddingPrice
-    
+    let adjustedBid = biddingPrice;
+
     // Adjust bid price based on premiumDiscountValue
-    if (product.premiumDiscountValue !== undefined && product.premiumDiscountValue !== null) {
+    if (
+      product.premiumDiscountValue !== undefined &&
+      product.premiumDiscountValue !== null
+    ) {
       if (product.premiumDiscountValue > 0) {
         adjustedBid += product.premiumDiscountValue;
       } else {
         adjustedBid -= Math.abs(product.premiumDiscountValue);
       }
     }
-    
+
     // Convert troy ounce price to gram price
     const pricePerGram = adjustedBid / troyOunceToGram;
-    
+
     // Calculate final price based on weight, purity and conversion factor
-    const finalPrice = pricePerGram * product.weight * calculatePurityPower(product.purity) * conversionFactor;
-    
+    const finalPrice =
+      pricePerGram *
+      product.weight *
+      calculatePurityPower(product.purity) *
+      conversionFactor;
+
     return finalPrice.toFixed(0);
   };
-  
+
   // Update Product Charges
   const handleUpdateProductCharges = async () => {
     try {
@@ -452,38 +458,30 @@ export default function ProductManagement() {
         isActive: true,
       };
 
-      console.log("Request body:", requestBody);
+      console.log(userSpotRateId || "null");
+      console.log(userId);
 
-      // Use the userSpotRateId if available, otherwise create a new user spot rate
-      let response;
-      if (userSpotRateId) {
-        response = await axiosInstance.patch(
-          `/user-spot-rate/${userSpotRateId}/user/${userId}/product`,
-          requestBody,
-          {
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
-      } else {
-        // If no userSpotRateId exists, create a new user spot rate
-        response = await axiosInstance.post(
-          `/user-spot-rates/${userId}/product`,
-          requestBody,
-          {
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
-        // Save the new userSpotRateId
-        if (response.data.success && response.data.userSpotRate) {
-          setUserSpotRateId(response.data.userSpotRate._id);
+      // Use the userSpotRateId if available, otherwise pass null in the URL
+      const spotRateIdParam = userSpotRateId || "null";
+
+      // Using the same endpoint structure for both create and update
+      // Just pass "null" as the spot rate ID when it doesn't exist
+      const response = await axiosInstance.patch(
+        `/user-spot-rate/${spotRateIdParam}/user/${userId}/product`,
+        requestBody,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
         }
-      }
+      );
 
       if (response.data.success) {
+        // If a new spot rate was created, save its ID
+        if (response.data.userSpotRate && !userSpotRateId) {
+          setUserSpotRateId(response.data.userSpotRate._id);
+        }
+
         // Refresh the product lists
         fetchProducts();
         fetchAssignedProducts();
