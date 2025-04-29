@@ -68,6 +68,7 @@ const Banner = () => {
       const response = await axiosInstance.get(`/banner/${adminId}`);
       if (response.data && response.data.data) {
         setBanners(response.data.data);
+        // console.log(response.data.data)
       }
     } catch (err) {
       toast.error("Error loading Ecom Banner");
@@ -637,17 +638,17 @@ const Banner = () => {
             {banners.length > 0 ? (
               banners.map((banner) => (
                 <tr key={banner._id} className="border-b border-gray-200">
-                  <td className="px-4 py-3 border-r border-gray-300">
-                    {banner.imageUrl && banner.imageUrl[0] && (
+                  <td className="px-4 py-3">
+                    {banner.images[0].imageUrl && banner.images[0].imageUrl && (
                       <img
-                        src={banner.imageUrl[0]}
+                        src={banner.images[0].imageUrl}
                         alt={banner.title}
-                        className="w-[60px] h-[60px] object-cover rounded"
+                        className="w-[150px] h-[120px] object-contain rounded"
                       />
                     )}
                   </td>
 
-                  <td className="px-4 py-3 border-r border-gray-300">
+                  <td className="px-4 py-3">
                     {banner.title}
                   </td>
 
