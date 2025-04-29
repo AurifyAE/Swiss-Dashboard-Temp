@@ -127,6 +127,10 @@ export default function ProductManagement() {
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [tabValue, setTabValue] = useState(0);
   const [categoryData, setCategoryData] = useState(null);
+  const [spotRates, setSpotRates] = useState({
+    goldBidSpread: 0,
+    goldAskSpread: 0,
+  });
 
   // Market Data
   const { marketData } = useMarketData(["GOLD"]);
@@ -287,8 +291,41 @@ export default function ProductManagement() {
     return purityInput / Math.pow(10, purityInput.toString().length);
   };
 
-  // Calculate Price
+  // Fetch spot rates on component mount
+  useEffect(() => {
+    fetchSpotRates();
+  }, []);
+
+  // Fetch spot rates from the API
+  const fetchSpotRates = async () => {
+    const adminId = localStorage.getItem("adminId");
+    if (!adminId) {
+      // setError("Admin ID not found. Please login again.");
+      return;
+    }
+
+    setLoading(true);
+    // setError(null);
+
+    try {
+      const response = await axios.get(`/spotrates/${adminId}`);
+      const spotData = response.data;
+
+      setSpotRates({
+        goldBidSpread: spotData.goldBidSpread || 0,
+        goldAskSpread: spotData.goldAskSpread || 0,
+      });
+    } catch (err) {
+      console.error("Error fetching spot rates:", err);
+      // setError("Failed to load spot rates. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Price calculation function that uses the fetched spot rates
   const priceCalculation = (product) => {
+    // Return 0 if missing required data
     if (!product || !marketData?.bid || !product.purity || !product.weight) {
       return 0;
     }
@@ -296,8 +333,18 @@ export default function ProductManagement() {
     const troyOunceToGram = 31.103;
     const conversionFactor = 3.674;
 
+    // Calculate bidding price using the formula:
+    // bid + goldBidSpread + goldAskSpread + 0.5 = biddingPrice
+    let biddingPrice =
+      marketData.bid +
+      (spotRates.goldBidSpread || 0) +
+      (spotRates.goldAskSpread || 0) +
+      0.5;
+    // console.log(biddingPrice)
+
+    let adjustedBid = biddingPrice;
+
     // Adjust bid price based on premiumDiscountValue
-    let adjustedBid = marketData.bid;
     if (
       product.premiumDiscountValue !== undefined &&
       product.premiumDiscountValue !== null
@@ -309,19 +356,17 @@ export default function ProductManagement() {
       }
     }
 
-    // Calculate base price
-    let price =
-      (adjustedBid / troyOunceToGram) *
-      conversionFactor *
+    // Convert troy ounce price to gram price
+    const pricePerGram = adjustedBid / troyOunceToGram;
+
+    // Calculate final price based on weight, purity and conversion factor
+    const finalPrice =
+      pricePerGram *
+      product.weight *
       calculatePurityPower(product.purity) *
-      product.weight;
+      conversionFactor;
 
-    // Add markingCharge if available
-    if (product.markingCharge) {
-      price += product.markingCharge;
-    }
-
-    return price.toFixed(0);
+    return finalPrice.toFixed(0);
   };
 
   // Update Product Charges

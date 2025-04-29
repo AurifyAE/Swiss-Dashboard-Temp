@@ -74,6 +74,14 @@ const Sidebar = () => {
           icon={
             <ShoppingCart strokeWidth={1.5} size={22} className="text-white" />
           }
+          text="Spot Rate"
+          to="/spot-rate"
+          active={location.pathname === "/spot-rate"}
+        />
+        <SidebarItem
+          icon={
+            <ShoppingCart strokeWidth={1.5} size={22} className="text-white" />
+          }
           text="Shop"
           to="/shop"
           active={location.pathname === "/shop"}

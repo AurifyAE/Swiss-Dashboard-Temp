@@ -1,6 +1,6 @@
 import React from 'react'
 import Header from '../components/Header';
-import SpotRates from "../components/spotRate/index"
+import SpotRates from '../components/spotRate/index';
 
 function SpotRate() {
   const title = "Spot Rate"
