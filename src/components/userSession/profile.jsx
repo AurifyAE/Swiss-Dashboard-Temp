@@ -5,6 +5,7 @@ import toast, { Toaster } from "react-hot-toast";
 import OrderManagement from "./orderHistory";
 import Header from "../../components/Header";
 import { useNavigate } from "react-router-dom";
+import TransactionHistory from "./TransactionHistory";
 
 const ProfilePage = () => {
   const title = "Customer Profile Details";
@@ -141,7 +142,8 @@ const ProfilePage = () => {
       }
 
       // Calculate pure gold value
-      const pureGoldValue = calculatePurityPower(selectedPurity.value) * weightNum;
+      const pureGoldValue =
+        calculatePurityPower(selectedPurity.value) * weightNum;
       const roundedValue = parseFloat(pureGoldValue.toFixed(3));
 
       setCalculatedGoldValue(roundedValue);
@@ -528,10 +530,18 @@ const ProfilePage = () => {
           </section>
 
           <div className="my-12 border-t border-dashed border-gray-300"></div>
-
-          <h2 className="text-xl font-bold -mt-7 mb-5 ml-5">Order History</h2>
           <div>
-            <OrderManagement userId={userId} />
+            <h2 className="text-xl font-bold -mt-7 mb-5 ml-5">Order History</h2>
+            <div>
+              <OrderManagement userId={userId} />
+            </div>
+            <div className="my-12 border-t border-dashed border-gray-300"></div>
+            <h2 className="text-xl font-bold -mt-7 mb-5 ml-5">
+              Transaction History
+            </h2>
+            <div>
+              <TransactionHistory userId={userId} />
+            </div>
           </div>
         </div>
 
