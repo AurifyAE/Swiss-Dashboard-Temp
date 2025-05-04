@@ -11,7 +11,7 @@ import {
   LogOut,
   Shield,
   Wallet,
-  LineChart,
+  Images,
 } from "lucide-react"; // Added the relevant icons from lucide-react
 
 import logo from "../assets/logo.jpg";
@@ -99,7 +99,7 @@ const Sidebar = () => {
           active={location.pathname === "/orders"}
         />
         <SidebarItem
-          icon={<FileText strokeWidth={1.5} size={22} className="text-white" />}
+          icon={<Images strokeWidth={1.5} size={22} className="text-white" />}
           text="Banner"
           to="/banner"
           active={location.pathname === "/banner"}
