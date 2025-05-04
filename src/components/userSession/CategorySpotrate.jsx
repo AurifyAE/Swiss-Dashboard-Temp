@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useReducer, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Table,
@@ -15,7 +15,6 @@ import {
   InputAdornment,
   Pagination,
   Button,
-  Card,
   Snackbar,
   Alert,
   FormControl,
@@ -32,16 +31,15 @@ import {
 import {
   Search as SearchIcon,
   Edit as EditIcon,
-  AddCircle as AddCircleIcon,
-  LocalOffer as LocalOfferIcon,
-  Percent as PercentIcon,
   Delete as DeleteIcon,
   Close as CloseIcon,
   Save as SaveIcon,
+  CheckCircle as CheckCircleIcon,
 } from "@mui/icons-material";
 import { styled } from "@mui/material/styles";
 import axiosInstance from "../../axios/axios";
 import useMarketData from "../../components/MarketData";
+import debounce from "lodash/debounce";
 
 // Styled Components
 const StyledTableHead = styled(TableHead)(({ theme }) => ({
@@ -50,16 +48,6 @@ const StyledTableHead = styled(TableHead)(({ theme }) => ({
     color: "white",
     fontWeight: "bold",
     textTransform: "uppercase",
-  },
-}));
-
-const GradientCard = styled(Card)(({ theme }) => ({
-  background: "linear-gradient(135deg, #f6d365 0%, #fda085 100%)",
-  borderRadius: 16,
-  boxShadow: "0 8px 15px rgba(0,0,0,0.1)",
-  transition: "transform 0.3s ease",
-  "&:hover": {
-    transform: "scale(1.02)",
   },
 }));
 
@@ -115,78 +103,172 @@ const StyledTabs = styled(Tabs)(({ theme }) => ({
   },
 }));
 
+// State Management with useReducer
+const initialState = {
+  products: [],
+  filteredProducts: [],
+  assignedProducts: [],
+  filteredAssignedProducts: [],
+  loading: false,
+  searchTerm: "",
+  page: 1,
+  selectedProductIds: [],
+  tabValue: 0,
+  categoryData: null,
+  spotRates: { goldBidSpread: 0, goldAskSpread: 0 },
+  modal: {
+    isOpen: false,
+    product: null,
+    markingChargeValue: "",
+    premiumDiscountType: "premium",
+    premiumDiscountValue: "",
+  },
+  deleteModal: {
+    isOpen: false,
+    product: null,
+  },
+  notification: {
+    isOpen: false,
+    message: "",
+    severity: "success",
+  },
+};
+
+const reducer = (state, action) => {
+  switch (action.type) {
+    case "SET_DATA":
+      return {
+        ...state,
+        products: action.payload.products,
+        filteredProducts: action.payload.products,
+        assignedProducts: action.payload.assignedProducts,
+        filteredAssignedProducts: action.payload.assignedProducts,
+        categoryData: action.payload.categoryData,
+      };
+    case "SET_LOADING":
+      return { ...state, loading: action.payload };
+    case "SET_SEARCH_TERM":
+      return { ...state, searchTerm: action.payload, page: 1 };
+    case "SET_PAGE":
+      return { ...state, page: action.payload };
+    case "TOGGLE_PRODUCT_SELECTION":
+      return {
+        ...state,
+        filteredProducts: state.filteredProducts.map((p) =>
+          p._id === action.payload
+            ? { ...p, isSelected: !p.isSelected }
+            : p
+        ),
+        filteredAssignedProducts: state.filteredAssignedProducts.map((p) =>
+          p._id === action.payload
+            ? { ...p, isSelected: !p.isSelected }
+            : p
+        ),
+        selectedProductIds: state.selectedProductIds.includes(action.payload)
+          ? state.selectedProductIds.filter((id) => id !== action.payload)
+          : [...state.selectedProductIds, action.payload],
+      };
+    case "SET_TAB_VALUE":
+      return { ...state, tabValue: action.payload, page: 1, searchTerm: "" };
+    case "SET_SPOT_RATES":
+      return { ...state, spotRates: action.payload };
+    case "OPEN_MODAL":
+      return {
+        ...state,
+        modal: {
+          isOpen: true,
+          product: action.payload,
+          markingChargeValue: action.payload.markingChargeValue || "",
+          premiumDiscountType: action.payload.premiumDiscountType || "premium",
+          premiumDiscountValue: action.payload.premiumDiscountValue || "",
+        },
+      };
+    case "CLOSE_MODAL":
+      return { ...state, modal: initialState.modal };
+    case "UPDATE_MODAL_FIELD":
+      return {
+        ...state,
+        modal: { ...state.modal, [action.field]: action.value },
+      };
+    case "OPEN_DELETE_MODAL":
+      return { ...state, deleteModal: { isOpen: true, product: action.payload } };
+    case "CLOSE_DELETE_MODAL":
+      return { ...state, deleteModal: initialState.deleteModal };
+    case "SHOW_NOTIFICATION":
+      return {
+        ...state,
+        notification: {
+          isOpen: true,
+          message: action.payload.message,
+          severity: action.payload.severity || "success",
+        },
+      };
+    case "HIDE_NOTIFICATION":
+      return { ...state, notification: { ...state.notification, isOpen: false } };
+    case "FILTER_PRODUCTS":
+      return {
+        ...state,
+        filteredProducts: state.products.filter(
+          (p) =>
+            p.title.toLowerCase().includes(action.payload) ||
+            p.price.toString().includes(action.payload) ||
+            p.weight.toString().includes(action.payload)
+        ),
+        filteredAssignedProducts: state.assignedProducts.filter(
+          (p) =>
+            p.title.toLowerCase().includes(action.payload) ||
+            p.price.toString().includes(action.payload) ||
+            p.weight.toString().includes(action.payload)
+        ),
+      };
+    default:
+      return state;
+  }
+};
+
+// Main Component
 export default function ProductManagement() {
-  // State Management
-  const [products, setProducts] = useState([]);
-  const [filteredProducts, setFilteredProducts] = useState([]);
-  const [assignedProducts, setAssignedProducts] = useState([]);
-  const [filteredAssignedProducts, setFilteredAssignedProducts] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [page, setPage] = useState(1);
-  const [selectedProducts, setSelectedProducts] = useState([]);
-  const [tabValue, setTabValue] = useState(0);
-  const [categoryData, setCategoryData] = useState(null);
-  const [spotRates, setSpotRates] = useState({
-    goldBidSpread: 0,
-    goldAskSpread: 0,
-  });
-
-  // Market Data
-  const { marketData } = useMarketData(["GOLD"]);
-
-  // Charge States
-  const [markingChargeType, setMarkingChargeType] = useState("");
-  const [markingChargeValue, setMarkingChargeValue] = useState("");
-  const [premiumDiscountType, setPremiumDiscountType] = useState("");
-  const [premiumDiscountValue, setPremiumDiscountValue] = useState("");
-
-  // Product Modal States
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [productMarkingChargeType, setProductMarkingChargeType] = useState("");
-  const [productMarkingChargeValue, setProductMarkingChargeValue] =
-    useState("");
-  const [productPremiumDiscountType, setProductPremiumDiscountType] =
-    useState("");
-  const [productPremiumDiscountValue, setProductPremiumDiscountValue] =
-    useState("");
-
-  // Delete Modal States
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [productToDelete, setProductToDelete] = useState(null);
-
+  const [state, dispatch] = useReducer(reducer, initialState);
   const [searchParams] = useSearchParams();
   const categoryId = searchParams.get("categoryId") || "N/A";
   const userId = searchParams.get("userId") || "Unknown";
-
-  // Notification State
-  const [notification, setNotification] = useState({
-    open: false,
-    message: "",
-    severity: "success",
-  });
-
-  // Pagination Configuration
+  const { marketData } = useMarketData(["GOLD"]);
   const productsPerPage = 6;
 
-  // Tab Change Handler
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue);
-    setPage(1);
-    setSearchTerm("");
-  };
+  // Fetch Spot Rates
+  const fetchSpotRates = useCallback(async () => {
+    const adminId = localStorage.getItem("adminId");
+    if (!adminId) return;
+
+    dispatch({ type: "SET_LOADING", payload: true });
+    try {
+      const response = await axiosInstance.get(`/spotrates/${adminId}`);
+      dispatch({
+        type: "SET_SPOT_RATES",
+        payload: {
+          goldBidSpread: response.data.goldBidSpread || 0,
+          goldAskSpread: response.data.goldAskSpread || 0,
+        },
+      });
+    } catch (error) {
+      dispatch({
+        type: "SHOW_NOTIFICATION",
+        payload: { message: "Failed to load spot rates", severity: "error" },
+      });
+    } finally {
+      dispatch({ type: "SET_LOADING", payload: false });
+    }
+  }, []);
 
   // Fetch Category Products
   const fetchCategoryProducts = useCallback(async () => {
+    dispatch({ type: "SET_LOADING", payload: true });
     try {
-      setLoading(true);
-
-      // First fetch all products
-      const adminId = localStorage.getItem("adminId");
-      const allProductsResponse = await axiosInstance.get(
-        `/get-all-product/${adminId}`
-      );
+      const adminId = localStorage.getItem("adminId") || "67c1a8978399ea3181f5cad9";
+      const [allProductsResponse, categoryResponse] = await Promise.all([
+        axiosInstance.get(`/get-all-product/${adminId}`),
+        axiosInstance.get(`/categories/${categoryId}`),
+      ]);
 
       let allProducts = [];
       if (allProductsResponse.data.success) {
@@ -196,23 +278,13 @@ export default function ProductManagement() {
         }));
       }
 
-      // Then fetch category-specific products
-      const categoryResponse = await axiosInstance.get(
-        `/categories/${categoryId}`
-      );
-
       if (categoryResponse.data.success) {
         const categoryData = categoryResponse.data.data;
-        setCategoryData(categoryData);
-
-        // Process category products
         const categoryProducts = categoryData.products || [];
-
-        // Create a map of assigned products with their charges
         const assignedProductsMap = new Map();
         categoryProducts.forEach((item) => {
           assignedProductsMap.set(item.productId, {
-            _id: item._id, // Add the _id from the category products array
+            _id: item._id,
             markingCharge: item.markingCharge,
             pricingType: item.pricingType,
             value: item.value,
@@ -220,434 +292,342 @@ export default function ProductManagement() {
           });
         });
 
-        // Merge product data with charge information
         const productsWithCharges = allProducts.map((product) => {
           const assignedInfo = assignedProductsMap.get(product._id);
           return {
             ...product,
-            categoryProductId: assignedInfo ? assignedInfo._id : null, // Store the category product _id
-            markingChargeType: "markup", // Default value
-            markingChargeValue: assignedInfo
-              ? assignedInfo.markingCharge
-              : null,
-            premiumDiscountType: assignedInfo
-              ? assignedInfo.pricingType.toLowerCase()
-              : "premium",
+            categoryProductId: assignedInfo ? assignedInfo._id : null,
+            markingChargeType: "markup",
+            markingChargeValue: assignedInfo ? assignedInfo.markingCharge : null,
+            premiumDiscountType: assignedInfo ? assignedInfo.pricingType.toLowerCase() : "premium",
             premiumDiscountValue: assignedInfo ? assignedInfo.value : null,
           };
         });
 
-        // Separate into all and assigned products
         const assigned = productsWithCharges.filter(
           (product) =>
             product.markingChargeValue !== null ||
             product.premiumDiscountValue !== null
         );
 
-        setProducts(productsWithCharges);
-        setFilteredProducts(productsWithCharges);
-        setAssignedProducts(assigned);
-        setFilteredAssignedProducts(assigned);
+        dispatch({
+          type: "SET_DATA",
+          payload: {
+            products: productsWithCharges,
+            assignedProducts: assigned,
+            categoryData,
+          },
+        });
       } else {
         throw new Error("Failed to fetch category products");
       }
     } catch (error) {
-      console.error("Error fetching data:", error);
-      handleNotification(error.message, "error");
+      dispatch({
+        type: "SHOW_NOTIFICATION",
+        payload: {
+          message: error.message || "Failed to fetch category products",
+          severity: "error",
+        },
+      });
     } finally {
-      setLoading(false);
+      dispatch({ type: "SET_LOADING", payload: false });
     }
   }, [categoryId]);
 
-  // Modal Handlers for Product Details
-  const handleOpenModal = (product) => {
-    setSelectedProduct(product);
-    setProductMarkingChargeType(product.markingChargeType || "markup");
-    setProductMarkingChargeValue(product.markingChargeValue || "");
-    setProductPremiumDiscountType(product.premiumDiscountType || "premium");
-    setProductPremiumDiscountValue(product.premiumDiscountValue || "");
-    setModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setModalOpen(false);
-    setSelectedProduct(null);
-  };
-
-  // Modal Handlers for Delete Confirmation
-  const handleOpenDeleteModal = (product) => {
-    setProductToDelete(product);
-    setDeleteModalOpen(true);
-  };
-
-  const handleCloseDeleteModal = () => {
-    setDeleteModalOpen(false);
-    setProductToDelete(null);
-  };
-
-  // Helper function to calculate purity power
-  const calculatePurityPower = (purityInput) => {
+  // Price Calculation
+  const calculatePurityPower = useCallback((purityInput) => {
     if (!purityInput || isNaN(purityInput)) return 1;
     return purityInput / Math.pow(10, purityInput.toString().length);
-  };
-
-  // Fetch spot rates on component mount
-  useEffect(() => {
-    fetchSpotRates();
   }, []);
 
-  // Fetch spot rates from the API
-  const fetchSpotRates = async () => {
-    const adminId = localStorage.getItem("adminId");
-    if (!adminId) {
-      // setError("Admin ID not found. Please login again.");
+  const priceCalculation = useCallback(
+    (product) => {
+      if (!product || !marketData?.bid || !product.purity || !product.weight) return 0;
+
+      const troyOunceToGram = 31.103;
+      const conversionFactor = 3.674;
+      let biddingPrice =
+        marketData.bid +
+        (state.spotRates.goldBidSpread || 0) +
+        (state.spotRates.goldAskSpread || 0) +
+        0.5;
+      let adjustedBid = biddingPrice;
+
+      if (product.premiumDiscountValue !== undefined && product.premiumDiscountValue !== null) {
+        adjustedBid +=
+          product.premiumDiscountType === "discount"
+            ? -Math.abs(product.premiumDiscountValue)
+            : product.premiumDiscountValue;
+      }
+
+      const pricePerGram = adjustedBid / troyOunceToGram;
+      const finalPrice =
+        pricePerGram *
+        product.weight *
+        calculatePurityPower(product.purity) *
+        conversionFactor +
+        (product.markingChargeValue || 0);
+
+      return finalPrice.toFixed(0);
+    },
+    [marketData, state.spotRates, calculatePurityPower]
+  );
+
+  // Handlers
+  const handleTabChange = useCallback((event, newValue) => {
+    dispatch({ type: "SET_TAB_VALUE", payload: newValue });
+  }, []);
+
+  const handleSearch = useMemo(
+    () =>
+      debounce((value) => {
+        dispatch({ type: "SET_SEARCH_TERM", payload: value });
+        dispatch({ type: "FILTER_PRODUCTS", payload: value.toLowerCase() });
+      }, 300),
+    []
+  );
+
+  const handlePageChange = useCallback((event, value) => {
+    dispatch({ type: "SET_PAGE", payload: value });
+  }, []);
+
+  const handleProductSelect = useCallback((productId) => {
+    dispatch({ type: "TOGGLE_PRODUCT_SELECTION", payload: productId });
+  }, []);
+
+  const handleOpenModal = useCallback((product) => {
+    dispatch({ type: "OPEN_MODAL", payload: product });
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    dispatch({ type: "CLOSE_MODAL" });
+  }, []);
+
+  const handleOpenDeleteModal = useCallback((product) => {
+    dispatch({ type: "OPEN_DELETE_MODAL", payload: product });
+  }, []);
+
+  const handleCloseDeleteModal = useCallback(() => {
+    dispatch({ type: "CLOSE_DELETE_MODAL" });
+  }, []);
+
+  const handleUpdateProductCharges = useCallback(async () => {
+    if (!state.modal.premiumDiscountType) {
+      dispatch({
+        type: "SHOW_NOTIFICATION",
+        payload: { message: "Please select Premium/Discount type", severity: "error" },
+      });
       return;
     }
 
-    setLoading(true);
-    // setError(null);
-
-    try {
-      const response = await axios.get(`/spotrates/${adminId}`);
-      const spotData = response.data;
-
-      setSpotRates({
-        goldBidSpread: spotData.goldBidSpread || 0,
-        goldAskSpread: spotData.goldAskSpread || 0,
+    if (!categoryId || categoryId === "N/A") {
+      dispatch({
+        type: "SHOW_NOTIFICATION",
+        payload: { message: "Category ID not found", severity: "error" },
       });
-    } catch (err) {
-      console.error("Error fetching spot rates:", err);
-      // setError("Failed to load spot rates. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Price calculation function that uses the fetched spot rates
-  const priceCalculation = (product) => {
-    // Return 0 if missing required data
-    if (!product || !marketData?.bid || !product.purity || !product.weight) {
-      return 0;
+      return;
     }
 
-    const troyOunceToGram = 31.103;
-    const conversionFactor = 3.674;
-
-    // Calculate bidding price using the formula:
-    // bid + goldBidSpread + goldAskSpread + 0.5 = biddingPrice
-    let biddingPrice =
-      marketData.bid +
-      (spotRates.goldBidSpread || 0) +
-      (spotRates.goldAskSpread || 0) +
-      0.5;
-    // console.log(biddingPrice)
-
-    let adjustedBid = biddingPrice;
-
-    // Adjust bid price based on premiumDiscountValue
-    if (
-      product.premiumDiscountValue !== undefined &&
-      product.premiumDiscountValue !== null
-    ) {
-      if (product.premiumDiscountValue > 0) {
-        adjustedBid += product.premiumDiscountValue;
-      } else {
-        adjustedBid -= Math.abs(product.premiumDiscountValue);
-      }
-    }
-
-    // Convert troy ounce price to gram price
-    const pricePerGram = adjustedBid / troyOunceToGram;
-
-    // Calculate final price based on weight, purity and conversion factor
-    const finalPrice =
-      pricePerGram *
-      product.weight *
-      calculatePurityPower(product.purity) *
-      conversionFactor;
-
-    return finalPrice.toFixed(0);
-  };
-
-  // Update Product Charges
-  const handleUpdateProductCharges = async () => {
     try {
-      // Validation checks
-      if (!productPremiumDiscountType) {
-        handleNotification("Please select Premium/Discount type", "error");
-        return;
-      }
-      if (!categoryId) {
-        handleNotification("Category ID not found", "error");
-        return;
-      }
-
-      // Prepare the request body
       const requestBody = {
-        markingCharge: parseFloat(productMarkingChargeValue) || 0,
+        markingCharge: parseFloat(state.modal.markingChargeValue) || 0,
         pricingType:
-          productPremiumDiscountType.charAt(0).toUpperCase() +
-          productPremiumDiscountType.slice(1), // Capitalize first letter
-        value: parseFloat(productPremiumDiscountValue) || 0,
+          state.modal.premiumDiscountType.charAt(0).toUpperCase() +
+          state.modal.premiumDiscountType.slice(1),
+        value: parseFloat(state.modal.premiumDiscountValue) || 0,
         isActive: true,
       };
 
-      console.log("Update request body:", requestBody);
-
-      // Make the PATCH request to update the product charges
       const response = await axiosInstance.patch(
-        `/categories/${categoryId}/products/${selectedProduct.categoryProductId}`,
+        `/categories/${categoryId}/products/${state.modal.product.categoryProductId}`,
         requestBody,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
+        { headers: { "Content-Type": "application/json" } }
       );
 
       if (response.data.success) {
-        // Refresh the product lists after successful update
-        fetchCategoryProducts();
+        await fetchCategoryProducts();
         handleCloseModal();
-        handleNotification("Product charges updated successfully");
+        dispatch({
+          type: "SHOW_NOTIFICATION",
+          payload: { message: "Product charges updated successfully" },
+        });
       } else {
-        throw new Error(
-          response.data.message || "Failed to update product charges"
-        );
+        throw new Error(response.data.message || "Failed to update product charges");
       }
     } catch (error) {
-      console.error("Update error:", error);
-      console.error("Error response data:", error.response?.data);
-      console.error("Error status:", error.response?.status);
-      handleNotification(
-        error.response?.data?.message || error.message,
-        "error"
-      );
+      dispatch({
+        type: "SHOW_NOTIFICATION",
+        payload: {
+          message: error.response?.data?.message || error.message,
+          severity: "error",
+        },
+      });
     }
-  };
+  }, [categoryId, state.modal, fetchCategoryProducts, handleCloseModal]);
 
-  // Save Product Charges
-  const handleSaveProductCharges = async () => {
+  const handleSaveProductCharges = useCallback(async () => {
+    const { markingChargeValue, premiumDiscountType, premiumDiscountValue } = state.modal;
+
+    if (!markingChargeValue && markingChargeValue !== 0) {
+      dispatch({
+        type: "SHOW_NOTIFICATION",
+        payload: { message: "Making charge is required", severity: "error" },
+      });
+      return;
+    }
+
+    if (isNaN(parseFloat(markingChargeValue))) {
+      dispatch({
+        type: "SHOW_NOTIFICATION",
+        payload: { message: "Making charge must be a valid number", severity: "error" },
+      });
+      return;
+    }
+
+    if (!premiumDiscountType) {
+      dispatch({
+        type: "SHOW_NOTIFICATION",
+        payload: { message: "Please select Premium/Discount type", severity: "error" },
+      });
+      return;
+    }
+
+    if (!premiumDiscountValue && premiumDiscountValue !== 0) {
+      dispatch({
+        type: "SHOW_NOTIFICATION",
+        payload: { message: "Premium/Discount value is required", severity: "error" },
+      });
+      return;
+    }
+
+    if (isNaN(parseFloat(premiumDiscountValue))) {
+      dispatch({
+        type: "SHOW_NOTIFICATION",
+        payload: {
+          message: "Premium/Discount value must be a valid number",
+          severity: "error",
+        },
+      });
+      return;
+    }
+
+    if (parseFloat(premiumDiscountValue) < 0) {
+      dispatch({
+        type: "SHOW_NOTIFICATION",
+        payload: {
+          message: "Premium/Discount value cannot be negative",
+          severity: "error",
+        },
+      });
+      return;
+    }
+
     try {
-      // Enhanced validation checks
-      if (!productMarkingChargeValue && productMarkingChargeValue !== 0) {
-        handleNotification("Making charge is required", "error");
-        return;
-      }
-
-      if (isNaN(parseFloat(productMarkingChargeValue))) {
-        handleNotification("Making charge must be a valid number", "error");
-        return;
-      }
-
-      if (!productPremiumDiscountType) {
-        handleNotification("Please select Premium/Discount type", "error");
-        return;
-      }
-
-      if (!productPremiumDiscountValue && productPremiumDiscountValue !== 0) {
-        handleNotification("Premium/Discount value is required", "error");
-        return;
-      }
-
-      if (isNaN(parseFloat(productPremiumDiscountValue))) {
-        handleNotification(
-          "Premium/Discount value must be a valid number",
-          "error"
-        );
-        return;
-      }
-
-      if (parseFloat(productPremiumDiscountValue) < 0) {
-        handleNotification(
-          "Premium/Discount value cannot be negative",
-          "error"
-        );
-        return;
-      }
-
-      // Prepare request body
       const requestBody = {
-        productId: selectedProduct._id,
-        markingCharge: parseFloat(productMarkingChargeValue) || 0,
+        productId: state.modal.product._id,
+        markingCharge: parseFloat(markingChargeValue) || 0,
         pricingType:
-          productPremiumDiscountType.charAt(0).toUpperCase() +
-          productPremiumDiscountType.slice(1), // Capitalize first letter
-        value: parseFloat(productPremiumDiscountValue) || 0,
+          premiumDiscountType.charAt(0).toUpperCase() + premiumDiscountType.slice(1),
+        value: parseFloat(premiumDiscountValue) || 0,
         isActive: true,
       };
 
       const response = await axiosInstance.patch(
         `/products/${categoryId}`,
         requestBody,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
+        { headers: { "Content-Type": "application/json" } }
       );
 
       if (response.data.success) {
-        fetchCategoryProducts();
+        await fetchCategoryProducts();
         handleCloseModal();
-        handleNotification("Product charges updated successfully");
+        dispatch({
+          type: "SHOW_NOTIFICATION",
+          payload: { message: "Product charges updated successfully" },
+        });
       }
     } catch (error) {
-      console.error("Error saving product charges:", error);
-      handleNotification(
-        error.response?.data?.message || error.message,
-        "error"
-      );
+      dispatch({
+        type: "SHOW_NOTIFICATION",
+        payload: {
+          message: error.response?.data?.message || error.message,
+          severity: "error",
+        },
+      });
     }
-  };
+  }, [state.modal, categoryId, fetchCategoryProducts, handleCloseModal]);
 
-  // Function to handle product deletion
-  const handleDeleteProductFromCategory = async () => {
-    if (!productToDelete || !productToDelete.categoryProductId) {
-      handleNotification("Invalid product or category product ID", "error");
+  const handleDeleteProductFromCategory = useCallback(async () => {
+    if (!state.deleteModal.product || !state.deleteModal.product.categoryProductId) {
+      dispatch({
+        type: "SHOW_NOTIFICATION",
+        payload: { message: "Invalid product or category product ID", severity: "error" },
+      });
       return;
     }
 
     try {
-      // Make DELETE request to remove the product from the category
       const response = await axiosInstance.delete(
-        `/categories/${categoryId}/products/${productToDelete.categoryProductId}`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
+        `/categories/${categoryId}/products/${state.deleteModal.product.categoryProductId}`,
+        { headers: { "Content-Type": "application/json" } }
       );
 
       if (response.data.success) {
-        // Refresh the product lists after successful deletion
-        fetchCategoryProducts();
+        await fetchCategoryProducts();
         handleCloseDeleteModal();
-        handleNotification("Product removed from category successfully");
+        dispatch({
+          type: "SHOW_NOTIFICATION",
+          payload: { message: "Product removed from category successfully" },
+        });
       } else {
-        throw new Error(
-          response.data.message || "Failed to remove product from category"
-        );
+        throw new Error(response.data.message || "Failed to remove product from category");
       }
     } catch (error) {
-      console.error("Delete error:", error);
-      console.error("Error response data:", error.response?.data);
-      console.error("Error status:", error.response?.status);
-      handleNotification(
-        error.response?.data?.message || error.message,
-        "error"
-      );
+      dispatch({
+        type: "SHOW_NOTIFICATION",
+        payload: {
+          message: error.response?.data?.message || error.message,
+          severity: "error",
+        },
+      });
     }
-  };
+  }, [categoryId, state.deleteModal, fetchCategoryProducts, handleCloseDeleteModal]);
 
-  // Notification Handler
-  const handleNotification = (message, severity = "success") => {
-    setNotification({
-      open: true,
-      message,
-      severity,
-    });
-  };
-
-  // Close Notification
-  const handleCloseNotification = (event, reason) => {
-    if (reason === "clickaway") {
-      return;
-    }
-    setNotification({ ...notification, open: false });
-  };
-
-  // Search Handler
-  const handleSearch = (event) => {
-    const value = event.target.value.toLowerCase();
-    setSearchTerm(value);
-    setPage(1);
-
-    if (tabValue === 0) {
-      const filtered = products.filter(
-        (product) =>
-          product.title.toLowerCase().includes(value) ||
-          product.price.toString().includes(value) ||
-          product.weight.toString().includes(value)
-      );
-      setFilteredProducts(filtered);
-    } else {
-      const filtered = assignedProducts.filter(
-        (product) =>
-          product.title.toLowerCase().includes(value) ||
-          product.price.toString().includes(value) ||
-          product.weight.toString().includes(value)
-      );
-      setFilteredAssignedProducts(filtered);
-    }
-  };
-
-  // Pagination Handler
-  const handlePageChange = (event, value) => {
-    setPage(value);
-  };
-
-  // Product Selection Handler
-  const handleProductSelect = (productId) => {
-    if (tabValue === 0) {
-      setFilteredProducts((prev) =>
-        prev.map((product) =>
-          product._id === productId
-            ? { ...product, isSelected: !product.isSelected }
-            : product
-        )
-      );
-    } else {
-      setFilteredAssignedProducts((prev) =>
-        prev.map((product) =>
-          product._id === productId
-            ? { ...product, isSelected: !product.isSelected }
-            : product
-        )
-      );
-    }
-
-    setSelectedProducts((prev) => {
-      const existingIndex = prev.findIndex((id) => id === productId);
-      return existingIndex > -1
-        ? prev.filter((id) => id !== productId)
-        : [...prev, productId];
-    });
-  };
+  const handleCloseNotification = useCallback((event, reason) => {
+    if (reason === "clickaway") return;
+    dispatch({ type: "HIDE_NOTIFICATION" });
+  }, []);
 
   // Lifecycle
   useEffect(() => {
     fetchCategoryProducts();
-  }, [fetchCategoryProducts]);
+    fetchSpotRates();
+  }, [fetchCategoryProducts, fetchSpotRates]);
 
   // Pagination Logic
-  const getCurrentProducts = () => {
+  const paginatedProducts = useMemo(() => {
     const currentProducts =
-      tabValue === 0 ? filteredProducts : filteredAssignedProducts;
+      state.tabValue === 0 ? state.filteredProducts : state.filteredAssignedProducts;
     return currentProducts.slice(
-      (page - 1) * productsPerPage,
-      page * productsPerPage
+      (state.page - 1) * productsPerPage,
+      state.page * productsPerPage
     );
-  };
+  }, [state.tabValue, state.filteredProducts, state.filteredAssignedProducts, state.page]);
 
-  const paginatedProducts = getCurrentProducts();
-
-  // Total Pages
-  const totalPages = Math.ceil(
-    (tabValue === 0
-      ? filteredProducts.length
-      : filteredAssignedProducts.length) / productsPerPage
+  const totalPages = useMemo(
+    () =>
+      Math.ceil(
+        (state.tabValue === 0
+          ? state.filteredProducts.length
+          : state.filteredAssignedProducts.length) / productsPerPage
+      ),
+    [state.tabValue, state.filteredProducts.length, state.filteredAssignedProducts.length]
   );
 
-  // Render Loading State
-  if (loading) {
+  // Render
+  if (state.loading) {
     return (
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        height="100vh"
-      >
+      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
         <CircularProgress color="primary" />
       </Box>
     );
@@ -657,51 +637,46 @@ export default function ProductManagement() {
     <div className="px-10 h-[100vh]">
       <Box p={4}>
         {/* Category Title */}
-        {categoryData && (
-          <Typography
-            variant="h5"
-            gutterBottom
-            fontWeight="bold"
-            color="primary"
-          >
-            Selected Category : {categoryData.name}
+        {state.categoryData && (
+          <Typography variant="h5" gutterBottom fontWeight="bold" color="primary">
+            Selected Category: {state.categoryData.name}
           </Typography>
         )}
 
         {/* Notification */}
         <Snackbar
-          open={notification.open}
+          open={state.notification.isOpen}
           autoHideDuration={6000}
           onClose={handleCloseNotification}
           anchorOrigin={{ vertical: "top", horizontal: "right" }}
         >
           <Alert
             onClose={handleCloseNotification}
-            severity={notification.severity}
+            severity={state.notification.severity}
             sx={{ width: "100%" }}
           >
-            {notification.message}
+            {state.notification.message}
           </Alert>
         </Snackbar>
 
         {/* Tabs */}
         <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
           <StyledTabs
-            value={tabValue}
+            value={state.tabValue}
             onChange={handleTabChange}
             indicatorColor="primary"
             textColor="primary"
           >
             <Tab label="All Products" />
-            <Tab label={`Assigned Products (${assignedProducts.length})`} />
+            <Tab label={`Assigned Products (${state.assignedProducts.length})`} />
           </StyledTabs>
         </Box>
 
         {/* Search Box */}
         <TextField
           placeholder="Search products..."
-          value={searchTerm}
-          onChange={handleSearch}
+          value={state.searchTerm}
+          onChange={(e) => handleSearch(e.target.value)}
           variant="outlined"
           InputProps={{
             startAdornment: (
@@ -719,9 +694,7 @@ export default function ProductManagement() {
               backgroundColor: "#fff",
               transition: "border-color 0.3s, box-shadow 0.3s",
               paddingLeft: 1,
-              "& .MuiOutlinedInput-notchedOutline": {
-                border: "none", // Hide default border
-              },
+              "& .MuiOutlinedInput-notchedOutline": { border: "none" },
             },
           }}
         />
@@ -736,7 +709,7 @@ export default function ProductManagement() {
                 <TableCell align="right">Price</TableCell>
                 <TableCell align="right">Weight</TableCell>
                 <TableCell align="right">Purity</TableCell>
-                {tabValue === 1 && (
+                {state.tabValue === 1 && (
                   <>
                     <TableCell align="right">Marking Charge</TableCell>
                     <TableCell align="right">Premium/Discount</TableCell>
@@ -747,154 +720,144 @@ export default function ProductManagement() {
             </StyledTableHead>
             <TableBody>
               {paginatedProducts.length > 0 ? (
-                paginatedProducts.map((product) => (
-                  <TableRow
-                    key={product._id}
-                    hover
-                    selected={product.isSelected}
-                    onClick={() => handleOpenModal(product)}
-                    sx={{
-                      "&:last-child td, &:last-child th": { border: 0 },
-                      transition: "background-color 0.3s",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <TableCell>
-                      <ProductImage
-                        src={product.images[0]?.url || "/placeholder-image.png"}
-                        alt={product.title}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="subtitle1" fontWeight="bold">
-                        {product.title}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography
-                        variant="subtitle1"
-                        color="primary"
-                        fontWeight="bold"
-                      >
-                        AED {priceCalculation(product)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontSize: "16px",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        {product.weight} g
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography
-                        variant="subtitle1"
-                        sx={{
-                          fontSize: "18px",
-                          fontWeight: "bold",
-                          color:
-                            product.purity >= 90
-                              ? "success.main"
-                              : "text.secondary",
-                        }}
-                      >
-                        {product.purity}
-                      </Typography>
-                    </TableCell>
-                    {tabValue === 1 && (
-                      <>
-                        <TableCell align="right">
-                          <Typography
-                            variant="body2"
-                            fontWeight="bold"
-                            fontSize="16px"
-                          >
-                            {product.markingChargeValue !== null
-                              ? `${parseFloat(
-                                  product.markingChargeValue
-                                ).toFixed(2)}`
-                              : "N/A"}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                          <Typography
-                            variant="body2"
-                            fontWeight="bold"
-                            fontSize="16px"
-                            color={
-                              product.premiumDiscountType === "discount"
-                                ? "error.main"
-                                : "success.main"
-                            }
-                          >
-                            {product.premiumDiscountValue !== null
-                              ? `${
-                                  product.premiumDiscountType === "premium"
-                                    ? "+"
-                                    : "-"
-                                }${parseFloat(
-                                  product.premiumDiscountValue
-                                ).toFixed(2)}`
-                              : "N/A"}
-                          </Typography>
-                        </TableCell>
-                      </>
-                    )}
-                    <TableCell
-                      align="center"
-                      onClick={(e) => e.stopPropagation()}
+                paginatedProducts.map((product) => {
+                  const isAssigned = state.assignedProducts.some(
+                    (assigned) => assigned._id === product._id
+                  );
+
+                  return (
+                    <TableRow
+                      key={product._id}
+                      hover
+                      selected={product.isSelected}
+                      onClick={() => handleOpenModal(product)}
+                      sx={{
+                        "&:last-child td, &:last-child th": { border: 0 },
+                        transition: "background-color 0.3s",
+                        cursor: "pointer",
+                      }}
                     >
-                      <Button
-                        variant="subtitle1"
-                        color="primary"
-                        size="small"
-                        startIcon={<EditIcon />}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenModal(product);
-                        }}
-                        sx={{
-                          borderRadius: "20px",
-                          boxShadow: 2,
-                          backgroundImage:
-                            "linear-gradient(to right, #E9FAFF, #EEF3F9)",
-                        }}
-                      >
-                        {tabValue === 0 ? "Add Charges" : "Edit Charges"}
-                      </Button>
-                      {tabValue === 1 && (
+                      <TableCell>
+                        <ProductImage
+                          src={product.images[0]?.url || "/placeholder-image.png"}
+                          alt={product.title}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Box display="flex" alignItems="center" gap={1}>
+                          <Typography variant="subtitle1" fontWeight="bold">
+                            {product.title}
+                          </Typography>
+                          {isAssigned && state.tabValue === 0 && (
+                            <CheckCircleIcon
+                              color="success"
+                              fontSize="small"
+                              titleAccess="Assigned"
+                            />
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography
+                          variant="subtitle1"
+                          color="primary"
+                          fontWeight="bold"
+                        >
+                          AED {priceCalculation(product)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" sx={{ fontSize: "16px", fontWeight: "bold" }}>
+                          {product.weight} g
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography
+                          variant="subtitle1"
+                          sx={{
+                            fontSize: "18px",
+                            fontWeight: "bold",
+                            color: product.purity >= 90 ? "success.main" : "text.secondary",
+                          }}
+                        >
+                          {product.purity}
+                        </Typography>
+                      </TableCell>
+                      {state.tabValue === 1 && (
+                        <>
+                          <TableCell align="right">
+                            <Typography variant="body2" fontWeight="bold" fontSize="16px">
+                              {product.markingChargeValue !== null
+                                ? `${parseFloat(product.markingChargeValue).toFixed(2)}`
+                                : "N/A"}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography
+                              variant="body2"
+                              fontWeight="bold"
+                              fontSize="16px"
+                              color={
+                                product.premiumDiscountType === "discount"
+                                  ? "error.main"
+                                  : "success.main"
+                              }
+                            >
+                              {product.premiumDiscountValue !== null
+                                ? `${
+                                    product.premiumDiscountType === "premium" ? "+" : "-"
+                                  }${parseFloat(product.premiumDiscountValue).toFixed(2)}`
+                                : "N/A"}
+                            </Typography>
+                          </TableCell>
+                        </>
+                      )}
+                      <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                         <Button
-                          variant="contained"
-                          color="error"
-                          size="medium"
-                          startIcon={<DeleteIcon />}
+                          variant="subtitle1"
+                          color="primary"
+                          size="small"
+                          startIcon={<EditIcon />}
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleOpenDeleteModal(product);
+                            handleOpenModal(product);
                           }}
                           sx={{
                             borderRadius: "20px",
                             boxShadow: 2,
-                            marginLeft: "15px",
+                            backgroundImage: "linear-gradient(to right, #E9FAFF, #EEF3F9)",
                           }}
                         >
-                          Delete
+                          {state.tabValue === 0 ? "Add Charges" : "Edit Charges"}
                         </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
+                        {state.tabValue === 1 && (
+                          <Button
+                            variant="contained"
+                            color="error"
+                            size="medium"
+                            startIcon={<DeleteIcon />}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenDeleteModal(product);
+                            }}
+                            sx={{
+                              borderRadius: "20px",
+                              boxShadow: 2,
+                              marginLeft: "15px",
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={tabValue === 0 ? 6 : 8} align="center">
+                  <TableCell colSpan={state.tabValue === 0 ? 6 : 8} align="center">
                     <Typography variant="subtitle1" py={4}>
-                      {tabValue === 0
-                        ? "No products found"
-                        : "No assigned products found"}
+                      {state.tabValue === 0 ? "No products found" : "No assigned products found"}
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -908,7 +871,7 @@ export default function ProductManagement() {
           <Box display="flex" justifyContent="center" mt={3}>
             <Pagination
               count={totalPages}
-              page={page}
+              page={state.page}
               onChange={handlePageChange}
               color="primary"
               variant="outlined"
@@ -918,26 +881,12 @@ export default function ProductManagement() {
         )}
 
         {/* Product Detail Modal */}
-        <Modal
-          open={modalOpen}
-          onClose={handleCloseModal}
-          aria-labelledby="product-modal-title"
-        >
+        <Modal open={state.modal.isOpen} onClose={handleCloseModal} aria-labelledby="product-modal-title">
           <ModalContent>
-            {selectedProduct && (
+            {state.modal.product && (
               <>
-                <Box
-                  display="flex"
-                  justifyContent="space-between"
-                  alignItems="center"
-                  mb={2}
-                >
-                  <Typography
-                    id="product-modal-title"
-                    variant="h5"
-                    component="h2"
-                    fontWeight="bold"
-                  >
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                  <Typography id="product-modal-title" variant="h5" component="h2" fontWeight="bold">
                     Product Details
                   </Typography>
                   <IconButton onClick={handleCloseModal} size="small">
@@ -949,47 +898,32 @@ export default function ProductManagement() {
 
                 <Box display="flex" flexDirection="row" gap={3} mb={3}>
                   <ProductModalImage
-                    src={
-                      selectedProduct.images[0]?.url || "/placeholder-image.png"
-                    }
-                    alt={selectedProduct.title}
+                    src={state.modal.product.images[0]?.url || "/placeholder-image.png"}
+                    alt={state.modal.product.title}
                   />
                   <Box>
                     <Typography variant="h6" fontWeight="bold" gutterBottom>
-                      {selectedProduct.title}
+                      {state.modal.product.title}
                     </Typography>
-                    <Typography
-                      variant="body1"
-                      color="text.secondary"
-                      gutterBottom
-                    >
+                    <Typography variant="body1" color="text.secondary" gutterBottom>
                       Price:{" "}
                       <span style={{ fontWeight: "bold", color: "#1976d2" }}>
-                        AED {priceCalculation(selectedProduct)}
+                        AED {priceCalculation(state.modal.product)}
                       </span>
                     </Typography>
-                    <Typography
-                      variant="body1"
-                      color="text.secondary"
-                      gutterBottom
-                    >
+                    <Typography variant="body1" color="text.secondary" gutterBottom>
                       Weight:{" "}
-                      <span style={{ fontWeight: "bold" }}>
-                        {selectedProduct.weight} g
-                      </span>
+                      <span style={{ fontWeight: "bold" }}>{state.modal.product.weight} g</span>
                     </Typography>
                     <Typography variant="body1" color="text.secondary">
                       Purity:{" "}
                       <span
                         style={{
                           fontWeight: "bold",
-                          color:
-                            selectedProduct.purity >= 90
-                              ? "#2e7d32"
-                              : "inherit",
+                          color: state.modal.product.purity >= 90 ? "#2e7d32" : "inherit",
                         }}
                       >
-                        {selectedProduct.purity}
+                        {state.modal.product.purity}
                       </span>
                     </Typography>
                   </Box>
@@ -1000,29 +934,26 @@ export default function ProductManagement() {
                 </Typography>
 
                 <Grid container spacing={3}>
-                  {/* Marking Charge */}
                   <Grid item xs={12} sm={6}>
                     <TextField
                       label="Marking Charge"
                       type="number"
                       fullWidth
                       margin="normal"
-                      value={productMarkingChargeValue}
+                      value={state.modal.markingChargeValue}
                       onChange={(e) =>
-                        setProductMarkingChargeValue(e.target.value)
+                        dispatch({
+                          type: "UPDATE_MODAL_FIELD",
+                          field: "markingChargeValue",
+                          value: e.target.value,
+                        })
                       }
                       sx={{
                         "& .MuiOutlinedInput-root": {
-                          "& fieldset": {
-                            borderColor: "rgba(0, 0, 0, 0.23)",
-                          },
-                          "&:hover fieldset": {
-                            borderColor: "rgba(0, 0, 0, 0.23)",
-                          },
+                          "& fieldset": { borderColor: "rgba(0, 0, 0, 0.23)" },
+                          "&:hover fieldset": { borderColor: "rgba(0, 0, 0, 0.23)" },
                         },
-                        "& input[type=number]": {
-                          "-moz-appearance": "textfield",
-                        },
+                        "& input[type=number]": { "-moz-appearance": "textfield" },
                         "& input[type=number]::-webkit-outer-spin-button": {
                           "-webkit-appearance": "none",
                           margin: 0,
@@ -1034,15 +965,17 @@ export default function ProductManagement() {
                       }}
                     />
                   </Grid>
-
-                  {/* Premium/Discount */}
                   <Grid item xs={12} sm={6}>
                     <FormControl fullWidth margin="normal">
                       <InputLabel>Premium/Discount Type</InputLabel>
                       <Select
-                        value={productPremiumDiscountType}
+                        value={state.modal.premiumDiscountType}
                         onChange={(e) =>
-                          setProductPremiumDiscountType(e.target.value)
+                          dispatch({
+                            type: "UPDATE_MODAL_FIELD",
+                            field: "premiumDiscountType",
+                            value: e.target.value,
+                          })
                         }
                         label="Premium/Discount Type"
                       >
@@ -1057,22 +990,20 @@ export default function ProductManagement() {
                       type="number"
                       fullWidth
                       margin="normal"
-                      value={productPremiumDiscountValue}
+                      value={state.modal.premiumDiscountValue}
                       onChange={(e) =>
-                        setProductPremiumDiscountValue(e.target.value)
+                        dispatch({
+                          type: "UPDATE_MODAL_FIELD",
+                          field: "McPremiumDiscountValue",
+                          value: e.target.value,
+                        })
                       }
                       sx={{
                         "& .MuiOutlinedInput-root": {
-                          "& fieldset": {
-                            borderColor: "rgba(0, 0, 0, 0.23)",
-                          },
-                          "&:hover fieldset": {
-                            borderColor: "rgba(0, 0, 0, 0.23)",
-                          },
+                          "& fieldset": { borderColor: "rgba(0, 0, 0, 0.23)" },
+                          "&:hover fieldset": { borderColor: "rgba(0, 0, 0, 0.23)" },
                         },
-                        "& input[type=number]": {
-                          "-moz-appearance": "textfield",
-                        },
+                        "& input[type=number]": { "-moz-appearance": "textfield" },
                         "& input[type=number]::-webkit-outer-spin-button": {
                           "-webkit-appearance": "none",
                           margin: 0,
@@ -1087,24 +1018,16 @@ export default function ProductManagement() {
                 </Grid>
 
                 <Box display="flex" justifyContent="flex-end" mt={4}>
-                  <Button
-                    variant="outlined"
-                    color="inherit"
-                    onClick={handleCloseModal}
-                    sx={{ mr: 2 }}
-                  >
+                  <Button variant="outlined" color="inherit" onClick={handleCloseModal} sx={{ mr: 2 }}>
                     Cancel
                   </Button>
-                  {tabValue === 0 ? (
+                  {state.tabValue === 0 ? (
                     <Button
                       variant="contained"
                       color="primary"
                       startIcon={<SaveIcon />}
                       onClick={handleSaveProductCharges}
-                      sx={{
-                        background:
-                          "linear-gradient(to right, #4338ca, #3730a3)",
-                      }}
+                      sx={{ background: "linear-gradient(to right, #4338ca, #3730a3)" }}
                     >
                       Apply Charges
                     </Button>
@@ -1114,10 +1037,7 @@ export default function ProductManagement() {
                       color="primary"
                       startIcon={<SaveIcon />}
                       onClick={handleUpdateProductCharges}
-                      sx={{
-                        background:
-                          "linear-gradient(to right, #4338ca, #3730a3)",
-                      }}
+                      sx={{ background: "linear-gradient(to right, #4338ca, #3730a3)" }}
                     >
                       Apply Charges
                     </Button>
@@ -1130,23 +1050,13 @@ export default function ProductManagement() {
 
         {/* Delete Confirmation Modal */}
         <Modal
-          open={deleteModalOpen}
+          open={state.deleteModal.isOpen}
           onClose={handleCloseDeleteModal}
           aria-labelledby="delete-modal-title"
         >
           <ModalContent>
-            <Box
-              display="flex"
-              justifyContent="space-between"
-              alignItems="center"
-              mb={2}
-            >
-              <Typography
-                id="delete-modal-title"
-                variant="h5"
-                component="h2"
-                fontWeight="bold"
-              >
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+              <Typography id="delete-modal-title" variant="h5" component="h2" fontWeight="bold">
                 Confirm Deletion
               </Typography>
               <IconButton onClick={handleCloseDeleteModal} size="small">
@@ -1158,7 +1068,7 @@ export default function ProductManagement() {
 
             <Typography variant="body1" color="text.secondary" mb={3}>
               Are you sure you want to remove{" "}
-              <strong>{productToDelete?.title}</strong> from the category? This
+              <strong>{state.deleteModal.product?.title}</strong> from the category? This
               action cannot be undone.
             </Typography>
 

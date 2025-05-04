@@ -2,7 +2,6 @@
 import React, {
   useState,
   useMemo,
-  forwardRef,
   useCallback,
   useEffect,
   useRef,
@@ -15,7 +14,6 @@ import {
   Download,
 } from "lucide-react";
 import {
-  PDFDownloadLink,
   Document,
   Page,
   Text,
@@ -28,75 +26,61 @@ import axiosInstance from "../../axios/axios";
 import { toast } from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
 
-// Improved Chevron Icon Component
-export const ChevronIcon = ({ expanded }) => {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={`transition-transform duration-300 ${
-        expanded ? "rotate-180" : ""
-      }`}
-    >
-      <path
-        d="M6 9L12 15L18 9"
-        stroke="#4628A7"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-};
+// Chevron Icon Component
+const ChevronIcon = ({ expanded }) => (
+  <svg
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    className={`transition-transform duration-200 ${
+      expanded ? "rotate-180" : ""
+    }`}
+  >
+    <path
+      d="M6 9L12 15L18 9"
+      stroke="#4628A7"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
 
-// Download Single Transaction
-const downloadSingleTransactionPDF = async (transaction, productsToDisplay) => {
+// Download Single Transaction PDF
+const downloadSingleTransactionPDF = async (transaction, products) => {
+  const toastId = toast.loading("Generating PDF...");
   try {
-    // Create the PDF document with just this transaction
-    const doc = (
+    const blob = await pdf(
       <Document>
         <Page size="A4" wrap={false}>
-          <TransactionPDF
-            transaction={transaction}
-            products={productsToDisplay}
-          />
+          <TransactionPDF transaction={transaction} products={products} />
         </Page>
       </Document>
-    );
+    ).toBlob();
 
-    // Generate the blob
-    const blob = await pdf(doc).toBlob();
-
-    // Create download link
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
     link.download = `Transaction_${transaction.id}_Details.pdf`;
-    document.body.appendChild(link);
     link.click();
 
-    // Clean up
-    setTimeout(() => {
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }, 100);
+    URL.revokeObjectURL(url);
+    toast.success("PDF downloaded successfully", { id: toastId });
   } catch (error) {
     console.error("Error generating PDF:", error);
-    toast.error("Error generating PDF. Please try again.");
+    toast.error("Failed to generate PDF", { id: toastId });
   }
 };
 
-// Transaction Header Component with Sorting
+// Transaction Header Component
 const TransactionHeader = ({ sortConfig, onSort, className = "" }) => {
   const headers = [
     { key: "id", label: "Transaction ID" },
     { key: "date", label: "Delivery Date" },
     { key: "paymentMethod", label: "Payment Method" },
     { key: "status", label: "Status" },
-    { key: "TotalWeight", label: "Total Weight" },
+    { key: "totalWeight", label: "Total Weight" },
     { key: "amount", label: "Total Amount" },
   ];
 
@@ -107,19 +91,16 @@ const TransactionHeader = ({ sortConfig, onSort, className = "" }) => {
       {headers.map((header) => (
         <div
           key={header.key}
-          className="flex items-center cursor-pointer"
+          className="flex items-center cursor-pointer gap-2"
           onClick={() => onSort(header.key)}
         >
           {header.label}
-          {sortConfig.key === header.key && (
-            <span className="ml-2">
-              {sortConfig.direction === "asc" ? (
-                <ChevronUpIcon size={16} />
-              ) : (
-                <ChevronDownIcon size={16} />
-              )}
-            </span>
-          )}
+          {sortConfig.key === header.key &&
+            (sortConfig.direction === "asc" ? (
+              <ChevronUpIcon size={16} />
+            ) : (
+              <ChevronDownIcon size={16} />
+            ))}
         </div>
       ))}
       <div>Customers</div>
@@ -127,23 +108,11 @@ const TransactionHeader = ({ sortConfig, onSort, className = "" }) => {
   );
 };
 
-// Products
-// const productsArray = [];
-
 // PDF Generation Component
 const TransactionPDF = ({ transaction, products }) => {
   const styles = StyleSheet.create({
-    page: {
-      padding: 0,
-      margin: 0,
-      position: "relative",
-    },
-    container: {
-      padding: 40,
-      height: "100%",
-      display: "flex",
-      flexDirection: "column",
-    },
+    page: { padding: 0, margin: 0, position: "relative" },
+    container: { padding: 40, height: "100%", flexDirection: "column" },
     watermarkContainer: {
       position: "absolute",
       top: "50%",
@@ -166,38 +135,23 @@ const TransactionPDF = ({ transaction, products }) => {
       borderBottomColor: "#e2e8f0",
       paddingBottom: 20,
     },
-    headerContent: {
-      flex: 1,
-    },
+    headerContent: { flex: 1 },
     companyName: {
       fontSize: 24,
       fontWeight: "bold",
       color: "#1e3a8a",
       marginBottom: 10,
     },
-    companyDetails: {
-      fontSize: 9,
-      color: "#64748b",
-      lineHeight: 1.6,
-    },
-    invoiceDetails: {
-      alignItems: "flex-end",
-    },
+    companyDetails: { fontSize: 9, color: "#64748b", lineHeight: 1.6 },
+    invoiceDetails: { alignItems: "flex-end" },
     invoiceTitle: {
       fontSize: 28,
       fontWeight: "bold",
       color: "#1e3a8a",
       marginBottom: 10,
     },
-    invoiceNumber: {
-      fontSize: 12,
-      color: "#64748b",
-    },
-    invoiceDate: {
-      fontSize: 10,
-      color: "#64748b",
-      marginTop: 5,
-    },
+    invoiceNumber: { fontSize: 12, color: "#64748b" },
+    invoiceDate: { fontSize: 10, color: "#64748b", marginTop: 5 },
     billingSection: {
       flexDirection: "row",
       justifyContent: "space-between",
@@ -215,49 +169,25 @@ const TransactionPDF = ({ transaction, products }) => {
       color: "#1e3a8a",
       marginBottom: 10,
     },
-    billingInfo: {
-      fontSize: 9,
-      color: "#64748b",
-      lineHeight: 1.6,
-    },
-    table: {
-      marginBottom: 30,
-    },
-    productImage: {
-      width: 40,
-      height: 40,
-      objectFit: "contain",
-    },
+    billingInfo: { fontSize: 9, color: "#64748b", lineHeight: 1.6 },
+    table: { marginBottom: 30 },
+    productImage: { width: 40, height: 40, objectFit: "contain" },
     tableHeader: {
       flexDirection: "row",
       backgroundColor: "#1e3a8a",
       padding: 10,
       color: "#ffffff",
     },
-    tableCellHeader: {
-      color: "#ffffff",
-      fontSize: 10,
-      fontWeight: "bold",
-    },
+    tableCellHeader: { color: "#ffffff", fontSize: 10, fontWeight: "bold" },
     tableRow: {
       flexDirection: "row",
       borderBottomWidth: 1,
       borderBottomColor: "#e2e8f0",
       padding: 10,
     },
-    tableCell: {
-      fontSize: 9,
-      color: "#334155",
-    },
-    productName: {
-      fontSize: 10,
-      fontWeight: "bold",
-      marginBottom: 4,
-    },
-    productDetails: {
-      fontSize: 8,
-      color: "#64748b",
-    },
+    tableCell: { fontSize: 9, color: "#334155" },
+    productName: { fontSize: 10, fontWeight: "bold", marginBottom: 4 },
+    productDetails: { fontSize: 8, color: "#64748b" },
     termsSection: {
       marginBottom: 30,
       padding: 15,
@@ -270,11 +200,7 @@ const TransactionPDF = ({ transaction, products }) => {
       color: "#1e3a8a",
       marginBottom: 10,
     },
-    termsText: {
-      fontSize: 8,
-      color: "#64748b",
-      lineHeight: 1.6,
-    },
+    termsText: { fontSize: 8, color: "#64748b", lineHeight: 1.6 },
     footer: {
       borderTopWidth: 1,
       borderTopColor: "#e2e8f0",
@@ -287,39 +213,27 @@ const TransactionPDF = ({ transaction, products }) => {
       fontWeight: "bold",
       marginBottom: 5,
     },
-    footerContact: {
-      fontSize: 9,
-      color: "#64748b",
-    },
+    footerContact: { fontSize: 9, color: "#64748b" },
   });
 
-  // Ensure that customer data is always available in a consistent format
   const customerData = transaction.customer || {};
-
-  // Format date safely
-  const formatDate = (dateStr) => {
-    try {
-      return new Date(dateStr).toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "numeric",
-        year: "numeric",
-      });
-    } catch (error) {
-      return dateStr || "N/A";
-    }
-  };
-
-  const watermarkText = transaction.status
-    ? transaction.status.toUpperCase()
-    : "PROCESSING";
+  const formatDate = (dateStr) =>
+    dateStr
+      ? new Date(dateStr).toLocaleDateString("en-GB", {
+          day: "numeric",
+          month: "numeric",
+          year: "numeric",
+        })
+      : "N/A";
 
   return (
     <Document>
       <View style={styles.container}>
         <View style={styles.watermarkContainer}>
-          <Text style={styles.watermarkText}>{watermarkText}</Text>
+          <Text style={styles.watermarkText}>
+            {transaction.status?.toUpperCase() || "PROCESSING"}
+          </Text>
         </View>
-
         <View style={styles.header}>
           <View style={styles.headerContent}>
             <Text style={styles.companyName}>The Swiss Gold</Text>
@@ -339,7 +253,6 @@ const TransactionPDF = ({ transaction, products }) => {
             </Text>
           </View>
         </View>
-
         <View style={styles.billingSection}>
           <View style={styles.billingBox}>
             <Text style={styles.billingTitle}>Bill To:</Text>
@@ -364,13 +277,12 @@ const TransactionPDF = ({ transaction, products }) => {
               {"\n"}
               Status: {transaction.status || "N/A"}
               {"\n"}
-              Gold Balance: {customerData.goldBalance || "N/A"}
+              Gold Balance: {customerData.goldBalance?.toFixed(2) || "N/A"}
               {"\n"}
-              Cash Balance: {customerData.cashBalance || "N/A"}
+              Cash Balance: {customerData.cashBalance?.toFixed(2) || "N/A"}
             </Text>
           </View>
         </View>
-
         <View style={styles.table}>
           <View style={styles.tableHeader}>
             <Text style={[styles.tableCellHeader, { flex: 2.5 }]}>
@@ -380,8 +292,7 @@ const TransactionPDF = ({ transaction, products }) => {
             <Text style={[styles.tableCellHeader, { flex: 1 }]}>Purity</Text>
             <Text style={[styles.tableCellHeader, { flex: 1 }]}>Amount</Text>
           </View>
-
-          {products && products.length > 0 ? (
+          {products?.length > 0 ? (
             products.map((product, index) => (
               <View
                 style={[
@@ -417,7 +328,6 @@ const TransactionPDF = ({ transaction, products }) => {
             </View>
           )}
         </View>
-
         <View style={styles.termsSection}>
           <Text style={styles.termsTitle}>Terms & Conditions:</Text>
           <Text style={styles.termsText}>
@@ -426,7 +336,6 @@ const TransactionPDF = ({ transaction, products }) => {
             computer-generated delivery note and requires no signature
           </Text>
         </View>
-
         <View style={styles.footer}>
           <Text style={styles.footerText}>Thank you for your business!</Text>
           <Text style={styles.footerContact}>
@@ -438,7 +347,7 @@ const TransactionPDF = ({ transaction, products }) => {
   );
 };
 
-// Function to get status color and badge
+// Status Badge Component
 const getStatusBadge = (status) => {
   const statusStyles = {
     approved: "bg-green-100 text-green-800",
@@ -450,18 +359,19 @@ const getStatusBadge = (status) => {
     default: "bg-gray-100 text-gray-800",
   };
 
-  const normalizedStatus = status.toLowerCase();
-  const badgeClass = statusStyles[normalizedStatus] || statusStyles["default"];
+  const normalizedStatus = status?.toLowerCase() || "default";
+  const badgeClass = statusStyles[normalizedStatus] || statusStyles.default;
 
   return (
     <span
       className={`px-2 py-1 rounded-full text-xs font-medium ${badgeClass}`}
     >
-      {status}
+      {status || "N/A"}
     </span>
   );
 };
 
+// Transaction Row Component
 const TransactionRow = ({
   transaction,
   expanded,
@@ -474,190 +384,21 @@ const TransactionRow = ({
     date,
     paymentMethod,
     status,
-    pricingOption,
     amount,
     totalWeight,
     customer,
-    products: transactionProducts,
+    products,
   } = transaction;
   const navigate = useNavigate();
-
   const [selectedStatus, setSelectedStatus] = useState(status);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState(null);
-  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [modal, setModal] = useState({ type: null, data: null });
   const [quantity, setQuantity] = useState(1);
   const [remark, setRemark] = useState("");
-  const [modals, setModals] = useState({
-    remark: false,
-    quantity: false,
-  });
   const [error, setError] = useState("");
   const dropdownRef = useRef(null);
+  const statusButtonRef = useRef(null);
 
-  // Function to handle status change
-  const handleStatusChange = async (newStatus) => {
-    // Store the previous status in case we need to revert
-    const previousStatus = selectedStatus;
-
-    // For rejected status, we need to open a modal for remarks
-    if (newStatus === "Rejected") {
-      // Set the selected order ID and open the remark modal
-      setSelectedOrder(orderId);
-      setModals((prev) => ({ ...prev, remark: true }));
-      return;
-    }
-
-    // Update the local state immediately for responsive UI
-    setSelectedStatus(newStatus);
-    setShowDropdown(false);
-
-    // Show loading indicator
-    const loadingToastId = toast.loading("Updating status...");
-
-    try {
-      // Call the API to update the status
-      await axiosInstance.put(`/update-order/${orderId}`, {
-        orderStatus: newStatus,
-      });
-
-      // Show success message
-      toast.success("Status updated successfully", {
-        id: loadingToastId,
-        duration: 3000,
-      });
-    } catch (error) {
-      console.error("Error updating status:", error);
-
-      // Revert to previous status on error
-      setSelectedStatus(previousStatus);
-
-      // Show error message
-      toast.error("Failed to update status", {
-        id: loadingToastId,
-      });
-    }
-  };
-
-  // Optimized remark submission handler
-  const handleRemarkSubmit = async () => {
-    if (!selectedOrder || !remark.trim()) {
-      setError("Please enter a remark");
-      return;
-    }
-
-    const loadingToastId = toast.loading("Submitting remark...");
-
-    try {
-      await axiosInstance.put(`/update-order-reject/${selectedOrder}`, {
-        orderStatus: "Rejected",
-        remark,
-      });
-
-      // Update local state
-      setSelectedStatus("Rejected");
-
-      // Close modal and reset fields
-      setModals((prev) => ({ ...prev, remark: false }));
-      setRemark("");
-      setError("");
-
-      toast.success("Order rejected", {
-        id: loadingToastId,
-        duration: 3000,
-      });
-    } catch (error) {
-      console.error("Error submitting remark:", error);
-      toast.error("Failed to submit remark", { id: loadingToastId });
-      setError("Failed to submit remark.");
-    }
-  };
-
-  // Handle product approval
-  const handleApproval = async (product) => {
-    console.log(product.fixedPrice);
-    console.log(orderId);
-    if (!orderId || !product.itemId) return;
-
-    if (product.quantity <= 1) {
-      const loadingToastId = toast.loading("Processing approval...");
-      try {
-        await axiosInstance.put(`/update-order-quantity/${orderId}`, {
-          itemStatus: "Approved",
-          itemId: product.itemId,
-          fixedPrice: product.amount,
-          quantity: product.quantity,
-        });
-
-        toast.success("Order approved", {
-          id: loadingToastId,
-          duration: 3000,
-        });
-      } catch (error) {
-        console.error("Error approving order:", error);
-        toast.error("Failed to approve order", { id: loadingToastId });
-        setError("Failed to approve order.");
-      }
-    } else {
-      setSelectedOrder(orderId);
-      setSelectedProduct(product);
-      setQuantity(product.quantity);
-      setModals((prev) => ({ ...prev, quantity: true }));
-    }
-  };
-
-  // Handle product rejection
-  const handleProductRejection = (product) => {
-    setSelectedOrder(orderId);
-    setSelectedProduct(product);
-    setModals((prev) => ({ ...prev, remark: true }));
-  };
-
-  // Optimized quantity submission handler
-  const handleQuantitySubmit = async () => {
-    if (!selectedOrder || !selectedProduct?.productId) return;
-
-    const loadingToastId = toast.loading("Updating quantity...");
-    try {
-      await axiosInstance.put(`/update-order-quantity/${selectedOrder}`, {
-        itemStatus: "UserApprovalPending",
-        itemId: selectedProduct.itemId,
-        fixedPrice: selectedProduct.amount,
-        quantity: quantity,
-      });
-
-      setModals((prev) => ({ ...prev, quantity: false }));
-      toast.success("Quantity updated", {
-        id: loadingToastId,
-        duration: 3000,
-      });
-    } catch (error) {
-      console.error("Error updating quantity:", error);
-      toast.error("Failed to update quantity", { id: loadingToastId });
-      setError("Failed to update quantity.");
-    }
-  };
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowDropdown(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  const productsToDisplay =
-    transactionProducts && transactionProducts.length > 0
-      ? transactionProducts
-      : products; // Fall back to global products if no transaction-specific products
-
-  // Status color mapping
   const statusStyles = {
     Approved: "bg-green-100 text-green-800",
     Success: "bg-emerald-100 text-emerald-800",
@@ -668,25 +409,136 @@ const TransactionRow = ({
     "Approval Pending": "bg-blue-100 text-[#0790E6]",
   };
 
-  const handleViewProfile = (customer) => {
-    // console.log(customer);
+  const handleStatusChange = useCallback(
+    async (newStatus) => {
+      if (newStatus === "Rejected") {
+        setModal({ type: "remark", data: { orderId } });
+        return;
+      }
+
+      const toastId = toast.loading("Updating status...");
+      setSelectedStatus(newStatus);
+      setShowDropdown(false);
+
+      try {
+        await axiosInstance.put(`/update-order/${orderId}`, {
+          orderStatus: newStatus,
+        });
+        toast.success("Status updated successfully", { id: toastId });
+      } catch (error) {
+        console.error("Error updating status:", error);
+        setSelectedStatus(status);
+        toast.error("Failed to update status", { id: toastId });
+      }
+    },
+    [orderId, status]
+  );
+
+  const handleRemarkSubmit = useCallback(async () => {
+    if (!remark.trim()) {
+      setError("Please enter a remark");
+      return;
+    }
+
+    const toastId = toast.loading("Submitting remark...");
+    try {
+      await axiosInstance.put(`/update-order-reject/${modal.data.orderId}`, {
+        orderStatus: "Rejected",
+        remark,
+      });
+      setSelectedStatus("Rejected");
+      setModal({ type: null, data: null });
+      setRemark("");
+      setError("");
+      toast.success("Order rejected", { id: toastId });
+    } catch (error) {
+      console.error("Error submitting remark:", error);
+      toast.error("Failed to submit remark", { id: toastId });
+      setError("Failed to submit remark");
+    }
+  }, [modal.data, remark]);
+
+  const handleApproval = useCallback(
+    async (product) => {
+      if (product.quantity > 1) {
+        setModal({ type: "quantity", data: { orderId, product } });
+        setQuantity(product.quantity);
+        return;
+      }
+
+      const toastId = toast.loading("Processing approval...");
+      try {
+        await axiosInstance.put(`/update-order-quantity/${orderId}`, {
+          itemStatus: "Approved",
+          itemId: product.itemId,
+          fixedPrice: product.amount,
+          quantity: product.quantity,
+        });
+        toast.success("Order approved", { id: toastId });
+      } catch (error) {
+        console.error("Error approving order:", error);
+        toast.error("Failed to approve order", { id: toastId });
+        setError("Failed to approve order");
+      }
+    },
+    [orderId]
+  );
+
+  const handleProductRejection = useCallback(
+    (product) => {
+      setModal({ type: "remark", data: { orderId, product } });
+    },
+    [orderId]
+  );
+
+  const handleQuantitySubmit = useCallback(async () => {
+    const { orderId, product } = modal.data;
+    const toastId = toast.loading("Updating quantity...");
+    try {
+      await axiosInstance.put(`/update-order-quantity/${orderId}`, {
+        itemStatus: "UserApprovalPending",
+        itemId: product.itemId,
+        fixedPrice: product.amount,
+        quantity,
+      });
+      setModal({ type: null, data: null });
+      toast.success("Quantity updated", { id: toastId });
+    } catch (error) {
+      console.error("Error updating quantity:", error);
+      toast.error("Failed to update quantity", { id: toastId });
+      setError("Failed to update quantity");
+    }
+  }, [modal.data, quantity]);
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        showDropdown &&
+        dropdownRef.current && 
+        !dropdownRef.current.contains(event.target) &&
+        statusButtonRef.current &&
+        !statusButtonRef.current.contains(event.target)
+      ) {
+        setShowDropdown(false);
+      }
+    };
+    
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showDropdown]);
+
+  const handleViewProfile = useCallback(() => {
     navigate(`/profile/${customer.id}`);
-  };
+  }, [navigate, customer.id]);
 
-  // Updated function to determine if the reject button should be shown
-  // Now it explicitly checks if status is NOT "Approved" AND NOT "Rejected"
-  const shouldShowRejectButton = (productStatus) => {
-    if (!productStatus) return false;
-
-    const status = productStatus.toLowerCase();
-    return status !== "approved" && status !== "rejected";
-  };
+  const shouldShowRejectButton = (productStatus) =>
+    productStatus &&
+    !["approved", "rejected"].includes(productStatus.toLowerCase());
 
   return (
-    <div className="last:border-b-0 bg-white">
-      {/* Transaction row - using responsive grid */}
+    <div className="last:border-b-0 bg-white relative">
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 items-center px-4 md:px-6 lg:px-12 py-4 hover:bg-[#F1FCFF] transition-colors">
-        {/* ID column with expand toggle */}
         <div className="flex items-center col-span-2 md:col-span-1">
           <button
             onClick={onToggleExpand}
@@ -697,33 +549,32 @@ const TransactionRow = ({
           </button>
           <span className="truncate">{id}</span>
         </div>
-
-        {/* Other columns - hidden on small screens, visible on md+ */}
         <div className="hidden md:block truncate">{date}</div>
         <div className="hidden md:block truncate">{paymentMethod}</div>
-
-        {/* Status dropdown - always visible but positioned differently based on screen size */}
-        <div className="relative">
+        <div className="relative" style={{ zIndex: showDropdown ? 40 : 20 }}>
           {dashboard ? (
-            // For dashboard, just show the status without dropdown
             <div
-              className={`flex items-center justify-between px-3 py-1 rounded-md text-sm font-semibold w-max ${statusStyles[selectedStatus]}`}
+              className={`flex items-center justify-between px-3 py-1 rounded-md text-sm font-semibold w-max ${
+                statusStyles[selectedStatus] || "bg-gray-100 text-gray-500"
+              }`}
             >
               <span>{selectedStatus}</span>
             </div>
           ) : (
-            // For non-dashboard view, show dropdown functionality
             <>
               <button
+                ref={statusButtonRef}
                 onClick={() => setShowDropdown(!showDropdown)}
-                className={`flex items-center justify-between px-3 py-1 rounded-md text-sm font-semibold w-max ${statusStyles[selectedStatus]}`}
+                className={`flex items-center justify-between px-3 py-1 rounded-md text-sm font-semibold w-max ${
+                  statusStyles[selectedStatus] || "bg-gray-100 text-gray-500"
+                }`}
                 aria-haspopup="true"
                 aria-expanded={showDropdown}
               >
                 <span>{selectedStatus}</span>
                 <svg
                   className={`ml-1 w-4 h-4 transition-transform ${
-                    showDropdown ? "transform rotate-180" : ""
+                    showDropdown ? "rotate-180" : ""
                   }`}
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 20 20"
@@ -736,18 +587,18 @@ const TransactionRow = ({
                   />
                 </svg>
               </button>
-
               {showDropdown && (
                 <ul
-                  className="absolute left-0 mt-1 w-full min-w-[160px] bg-white shadow-lg border rounded-md text-sm z-10"
+                  ref={dropdownRef}
+                  className="absolute left-0 mt-1 w-40 bg-white shadow-lg border rounded-md text-sm z-50 overflow-visible"
                   role="menu"
                 >
                   {[
-                    "Rejected",
-                    "Success",
-                    "UserApprovalPending",
                     "Processing",
                     "Approved",
+                    "UserApprovalPending",
+                    "Success",
+                    "Rejected",
                   ].map((statusOption) => (
                     <li
                       key={statusOption}
@@ -767,16 +618,13 @@ const TransactionRow = ({
             </>
           )}
         </div>
-
         <div className="hidden lg:block truncate">{totalWeight} g</div>
         <div className="font-semibold hidden md:block">
           AED {typeof amount === "number" ? amount.toLocaleString() : amount}
         </div>
-
-        {/* Actions column */}
         <div className="flex items-center justify-end gap-2">
           <button
-            onClick={() => handleViewProfile(customer)}
+            onClick={handleViewProfile}
             className="px-6 py-2 bg-gradient-to-r from-[#32B4DB] to-[#156AEF] text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
           >
             View
@@ -784,7 +632,7 @@ const TransactionRow = ({
           {!dashboard && (
             <button
               onClick={() =>
-                downloadSingleTransactionPDF(transaction, productsToDisplay)
+                downloadSingleTransactionPDF(transaction, products)
               }
               className="p-2 bg-gradient-to-r from-[#32B4DB] to-[#156AEF] text-white rounded-md transition-colors"
               aria-label="Download PDF"
@@ -795,7 +643,6 @@ const TransactionRow = ({
         </div>
       </div>
 
-      {/* Mobile-only summary row (visible on small screens) */}
       <div className="grid grid-cols-2 gap-2 px-4 py-2 md:hidden bg-gray-50">
         <div className="text-sm text-gray-600">
           Date: <span className="text-gray-900">{date}</span>
@@ -803,22 +650,17 @@ const TransactionRow = ({
         <div className="text-sm text-gray-600">
           Amount:{" "}
           <span className="text-gray-900">
-            ${typeof amount === "number" ? amount.toLocaleString() : amount}
+            AED {typeof amount === "number" ? amount.toLocaleString() : amount}
           </span>
         </div>
         <div className="text-sm text-gray-600">
           Payment: <span className="text-gray-900">{paymentMethod}</span>
         </div>
-        <div className="text-sm text-gray-600">
-          Option: <span className="text-gray-900">{pricingOption}</span>
-        </div>
       </div>
 
-      {/* Expanded Section */}
       {expanded && (
         <div className="bg-[#F1FCFF] py-3 md:py-5 px-4 md:px-8 w-full">
-          <div className="bg-white rounded-xl border-2 border-sky-400 border-solid shadow-[0_4px_4px_rgba(50,180,219,0.24)] w-full overflow-x-auto">
-            {/* Table Header - responsive with overflow scroll on smaller screens */}
+          <div className="bg-white rounded-xl border-2 border-sky-400 shadow-[0_4px_4px_rgba(50,180,219,0.24)] w-full overflow-x-auto">
             <div className="min-w-[800px] flex px-0 py-4 text-sm text-black bg-zinc-300 rounded-[9px_9px_0_0]">
               <div className="pl-4 md:pl-7 text-left flex-shrink-0 w-[130px]">
                 Product Image
@@ -837,24 +679,22 @@ const TransactionRow = ({
                 </div>
               )}
             </div>
-
-            {/* Table Body */}
             <div className="overflow-x-auto">
-              {productsToDisplay.length > 0 ? (
-                productsToDisplay.map((product, index) => (
+              {products.length > 0 ? (
+                products.map((product, index) => (
                   <div
                     key={index}
                     className="min-w-[800px] flex items-center px-4 py-5 border-b border-solid border-b-zinc-100"
                   >
                     <div className="pl-2 md:pl-7 text-sm text-center text-black flex-shrink-0 w-[130px]">
                       <div className="flex justify-center items-center bg-white h-[60px] shadow-[0_1px_2px_rgba(0,0,0,0.09)] w-[50px]">
-                        {product.image ? (
+                        {product.image && (
                           <img
                             src={product.image}
                             alt="Gold bar"
                             className="w-8 h-[50px] object-contain"
                           />
-                        ) : null}
+                        )}
                       </div>
                     </div>
                     <div className="text-sm text-center text-black flex-1 min-w-[120px] px-2">
@@ -882,18 +722,14 @@ const TransactionRow = ({
                     </div>
                     {!dashboard && (
                       <div className="text-sm text-center text-black flex-shrink-0 w-[130px] flex justify-center space-x-2">
-                        {product.status === "Approval Pending" ? (
+                        {product.status === "Approval Pending" && (
                           <button
                             onClick={() => handleApproval(product)}
                             className="bg-blue-100 text-[#0790E6] px-3 py-1 rounded-md shadow-lg hover:bg-blue-200 transition-colors"
                           >
                             Approve
                           </button>
-                        ) : (
-                          ""
                         )}
-
-                        {/* Only show Reject button if status is not Approved or Rejected */}
                         {shouldShowRejectButton(product.status) && (
                           <button
                             onClick={() => handleProductRejection(product)}
@@ -916,12 +752,11 @@ const TransactionRow = ({
         </div>
       )}
 
-      {/* Modals - unchanged */}
-      {modals.remark && (
+      {modal.type === "remark" && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white p-6 rounded-lg max-w-md w-full">
             <h3 className="text-lg font-medium mb-4">
-              {selectedProduct ? "Reject Product" : "Reject Order"}
+              {modal.data.product ? "Reject Product" : "Reject Order"}
             </h3>
             <div className="mb-4">
               <label className="block text-sm font-medium mb-1">Remarks</label>
@@ -931,17 +766,16 @@ const TransactionRow = ({
                 value={remark}
                 onChange={(e) => setRemark(e.target.value)}
                 placeholder="Enter reason for rejection"
-              ></textarea>
+              />
               {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
             </div>
             <div className="flex justify-end space-x-3">
               <button
                 className="px-4 py-2 border border-gray-300 rounded"
                 onClick={() => {
-                  setModals((prev) => ({ ...prev, remark: false }));
+                  setModal({ type: null, data: null });
                   setRemark("");
                   setError("");
-                  setSelectedProduct(null);
                 }}
               >
                 Cancel
@@ -957,8 +791,7 @@ const TransactionRow = ({
         </div>
       )}
 
-      {/* Quantity Modal */}
-      {modals.quantity && (
+      {modal.type === "quantity" && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white p-6 rounded-lg max-w-md w-full">
             <h3 className="text-lg font-medium mb-4">Update Quantity</h3>
@@ -977,14 +810,14 @@ const TransactionRow = ({
               <button
                 className="px-4 py-2 border border-gray-300 rounded"
                 onClick={() => {
-                  setModals((prev) => ({ ...prev, quantity: false }));
+                  setModal({ type: null, data: null });
                   setError("");
                 }}
               >
                 Cancel
               </button>
               <button
-                className="px-4 py-2 bg-gradient-to-r from-[#32B4DB] to-[#156AEF] text-white rounded"
+                className="px-4 py-2 bg-gradient-to-r from-[#32B4DB] to-[#156AEF] text-white rounded ml-2"
                 onClick={handleQuantitySubmit}
               >
                 Submit
@@ -997,7 +830,7 @@ const TransactionRow = ({
   );
 };
 
-// Enhanced PaginationControls Component
+// Pagination Controls Component
 const PaginationControls = ({
   currentPage,
   totalPages,
@@ -1007,7 +840,6 @@ const PaginationControls = ({
   totalItems,
 }) => {
   const rowsPerPageOptions = [5, 10, 20, 50];
-
   const startItem = (currentPage - 1) * rowsPerPage + 1;
   const endItem = Math.min(startItem + rowsPerPage - 1, totalItems);
 
@@ -1027,12 +859,10 @@ const PaginationControls = ({
           ))}
         </select>
       </div>
-
       <div className="flex items-center gap-2">
         <span className="text-sm text-gray-600">
           {startItem}-{endItem} of {totalItems}
         </span>
-
         <div className="flex gap-1">
           <button
             onClick={() => onPageChange(currentPage - 1)}
@@ -1042,7 +872,6 @@ const PaginationControls = ({
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
-
           <button
             onClick={() => onPageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
@@ -1057,7 +886,7 @@ const PaginationControls = ({
   );
 };
 
-// Main Component
+// Main Transaction Table Component
 const TransactionTable = ({
   timeFilter = "This Week",
   statusFilter = null,
@@ -1072,40 +901,33 @@ const TransactionTable = ({
     key: "date",
     direction: "desc",
   });
-
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [products, setProducts] = useState([]);
   const [error, setError] = useState(null);
 
   const adminId =
     typeof window !== "undefined" ? localStorage.getItem("adminId") : null;
 
-  // Optimized API calls with useCallback
   const fetchOrders = useCallback(async () => {
     if (!adminId) {
       setError("Admin ID not found. Please log in again.");
       return;
     }
+
+    const toastId = toast.loading("Fetching orders...");
     setLoading(true);
-    const loadingToastId = toast.loading("Fetching orders...");
     try {
       const response = await axiosInstance.get(`/booking/${adminId}`);
       const newOrders = response.data.orderDetails;
-      // console.log("API Response:", newOrders);
 
-      // Create an array to store all products from all transactions
-      let allProducts = [];
-
-      // Transform the API response to match our table structure
       const transformedOrders = newOrders.map((order) => {
-        // Extract and normalize customer data
         const customerData = {
-          id: order.customer?.id || order.userId || "N/A", 
+          id: order.customer?.id || order.userId || "N/A",
           name: order.customer?.name || order.userName || "N/A",
           email: order.customer?.email || order.userEmail || "N/A",
-          contact:
-            order.customer?.contact || order.userPhone || order.phone || "N/A",
+          contact: String(
+            order.customer?.contact || order.userPhone || order.phone || "N/A"
+          ),
           address:
             order.customer?.address ||
             order.userAddress ||
@@ -1115,24 +937,16 @@ const TransactionTable = ({
           cashBalance: order.customer?.cashBalance || "N/A",
         };
 
-        // Extract products from each order
-        const orderProducts = [];
-        if (order.items && Array.isArray(order.items)) {
-          // Process each product item in the order
-          order.items.forEach((item) => {
-            // Handle the new product structure where product details are in a sub-object
+        const orderProducts =
+          order.items?.map((item) => {
             const productData = item.product || {};
-
-            const product = {
-              image:
-                productData.images && productData.images.length > 0
-                  ? productData.images[0].url
-                  : "",
+            return {
+              image: productData.images?.[0]?.url || "",
               name: productData.title || "Gold Product",
               weight: productData.weight ? `${productData.weight}` : "N/A",
               purity: productData.purity || "9999",
-              quantity: item.quantity || "1",
-              amount: item.fixedPrice || productData.price || "0",
+              quantity: item.quantity || 1,
+              amount: item.fixedPrice || productData.price || 0,
               productId:
                 productData.id ||
                 item._id ||
@@ -1142,13 +956,8 @@ const TransactionTable = ({
               type: productData.type || "GOLD",
               sku: productData.sku || "N/A",
             };
+          }) || [];
 
-            orderProducts.push(product);
-            allProducts.push(product);
-          });
-        }
-
-        // Return the transformed order with enhanced customer data
         return {
           orderId: order._id,
           id:
@@ -1168,29 +977,11 @@ const TransactionTable = ({
         };
       });
 
-      // Update global products array - deduplicate by productId if needed
-      const uniqueProducts = [];
-      const productIds = new Set();
-
-      allProducts.forEach((product) => {
-        if (!productIds.has(product.productId)) {
-          productIds.add(product.productId);
-          uniqueProducts.push(product);
-        }
-      });
-
-      // Update the products array with all found products
-      setProducts(uniqueProducts);
-
-      // Set the transformed orders to state
       setOrders(transformedOrders);
-
-      toast.success("Orders loaded successfully", {
-        id: loadingToastId,
-      });
+      toast.success("Orders loaded successfully", { id: toastId });
     } catch (error) {
       console.error("Error fetching orders:", error);
-      toast.error("Failed to load orders", { id: loadingToastId });
+      toast.error("Failed to load orders", { id: toastId });
       setError("Failed to load orders. Please try again later.");
     } finally {
       setLoading(false);
@@ -1211,8 +1002,6 @@ const TransactionTable = ({
           new Date(transaction.date).getFullYear() ===
             new Date().getFullYear());
 
-      // console.log(transaction.customer);
-
       const isStatusMatch =
         !statusFilter ||
         transaction.status.toLowerCase() === statusFilter.toLowerCase() ||
@@ -1220,32 +1009,36 @@ const TransactionTable = ({
 
       const isSearchMatch =
         !searchQuery ||
-        transaction.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        transaction.paymentMethod
+        String(transaction.id)
           .toLowerCase()
           .includes(searchQuery.toLowerCase()) ||
-        transaction.status.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        transaction.pricingOption
+        String(transaction.paymentMethod)
           .toLowerCase()
           .includes(searchQuery.toLowerCase()) ||
-        transaction.amount.toString().includes(searchQuery) ||
-        transaction.customer?.name
-          ?.toLowerCase()
+        String(transaction.status)
+          .toLowerCase()
           .includes(searchQuery.toLowerCase()) ||
-        transaction.customer?.email
-          ?.toLowerCase()
+        String(transaction.pricingOption)
+          .toLowerCase()
           .includes(searchQuery.toLowerCase()) ||
-        transaction.customer?.contact
-          ?.toLowerCase()
+        String(transaction.amount).includes(searchQuery.toLowerCase()) ||
+        String(transaction.customer?.name)
+          .toLowerCase()
           .includes(searchQuery.toLowerCase()) ||
-        transaction.customer?.address
-          ?.toLowerCase()
+        String(transaction.customer?.email)
+          .toLowerCase()
           .includes(searchQuery.toLowerCase()) ||
-        transaction.customer?.cashBalance
-          ?.toLowerCase()
+        String(transaction.customer?.contact)
+          .toLowerCase()
           .includes(searchQuery.toLowerCase()) ||
-        transaction.customer?.goldBalance
-          ?.toLowerCase()
+        String(transaction.customer?.address)
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
+        String(transaction.customer?.cashBalance)
+          .toLowerCase()
+          .includes(searchQuery.toLowerCase()) ||
+        String(transaction.customer?.goldBalance)
+          .toLowerCase()
           .includes(searchQuery.toLowerCase());
 
       return isTimeMatch && isStatusMatch && isSearchMatch;
@@ -1253,17 +1046,13 @@ const TransactionTable = ({
   }, [orders, timeFilter, statusFilter, searchQuery]);
 
   const sortedTransactions = useMemo(() => {
-    const sortableTransactions = [...filteredTransactions];
-    sortableTransactions.sort((a, b) => {
-      if (a[sortConfig.key] < b[sortConfig.key]) {
-        return sortConfig.direction === "asc" ? -1 : 1;
-      }
-      if (a[sortConfig.key] > b[sortConfig.key]) {
-        return sortConfig.direction === "asc" ? 1 : -1;
-      }
+    return [...filteredTransactions].sort((a, b) => {
+      const aValue = a[sortConfig.key];
+      const bValue = b[sortConfig.key];
+      if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
       return 0;
     });
-    return sortableTransactions;
   }, [filteredTransactions, sortConfig]);
 
   const totalItems = sortedTransactions.length;
@@ -1273,73 +1062,69 @@ const TransactionTable = ({
     currentPage * rowsPerPage
   );
 
-  const handleSort = (key) => {
+  const handleSort = useCallback((key) => {
     setSortConfig((prev) => ({
       key,
       direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
     }));
-  };
+  }, []);
 
-  const handleRowsPerPageChange = (newRowsPerPage) => {
+  const handleRowsPerPageChange = useCallback((newRowsPerPage) => {
     setRowsPerPage(newRowsPerPage);
     setCurrentPage(1);
-  };
+  }, []);
 
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages) {
-      setCurrentPage(newPage);
-    }
-  };
+  const handlePageChange = useCallback(
+    (newPage) => {
+      if (newPage >= 1 && newPage <= totalPages) {
+        setCurrentPage(newPage);
+      }
+    },
+    [totalPages]
+  );
 
-  // Export all transactions to PDF
-  const handleExportAllToPDF = async () => {
+  const handleExportAllToPDF = useCallback(async () => {
+    const toastId = toast.loading("Generating PDF...");
     try {
-      // Create an array of all transaction pages
       const pages = filteredTransactions.map((transaction) => (
         <Page key={transaction.id} size="A4" wrap={false}>
-          <TransactionPDF transaction={transaction} products={products} />
+          <TransactionPDF
+            transaction={transaction}
+            products={transaction.products}
+          />
         </Page>
       ));
 
-      // Create the PDF document
       const doc = <Document>{pages}</Document>;
-
-      // Generate the blob and trigger download
       const blob = await pdf(doc).toBlob();
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
       link.download = "All_Transactions.pdf";
-      document.body.appendChild(link);
       link.click();
 
-      // Clean up
-      setTimeout(() => {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      }, 100);
+      URL.revokeObjectURL(url);
+      toast.success("PDF downloaded successfully", { id: toastId });
     } catch (error) {
       console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF", { id: toastId });
     }
-  };
+  }, [filteredTransactions]);
 
-  // Expose the function (keep this the same)
   TransactionTable.exportAllToPDF = handleExportAllToPDF;
 
   return (
-    <div className="w-full overflow-hidden">
+    <div className="w-full relative z-0">
       {error && (
         <div className="p-4 mb-4 bg-red-100 text-red-700 rounded-md">
           {error}
         </div>
       )}
-
       <TransactionHeader
         sortConfig={sortConfig}
         onSort={handleSort}
         className={className}
       />
-
       {loading ? (
         <div className="p-6 text-center text-gray-500">Loading orders...</div>
       ) : paginatedTransactions.length > 0 ? (
@@ -1361,12 +1146,10 @@ const TransactionTable = ({
           No transactions found
         </div>
       )}
-
-      {/* Updated PaginationControls with totalItems */}
       <PaginationControls
         currentPage={currentPage}
         totalPages={totalPages || 1}
-        totalItems={totalItems} // Pass total items count
+        totalItems={totalItems}
         onPageChange={handlePageChange}
         rowsPerPage={rowsPerPage}
         onRowsPerPageChange={handleRowsPerPageChange}

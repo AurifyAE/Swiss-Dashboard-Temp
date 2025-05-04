@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import axios from "../../axios/axios";
 import toast, { Toaster } from "react-hot-toast";
+import useMarketData from "../../components/MarketData";
 
 // Product Modal Component
 function ProductModal({
@@ -29,8 +30,95 @@ function ProductModal({
   validateForm,
   showErrorToast,
 }) {
+  // Market Data
+  const { marketData } = useMarketData(["GOLD"]);
+
   const MAX_IMAGES = 5;
   const getTotalImageCount = () => existingImages.length + newImages.length;
+
+  // Helper function to calculate purity power
+  const calculatePurityPower = (purityInput) => {
+    if (!purityInput || isNaN(purityInput)) return 1;
+    return purityInput / Math.pow(10, purityInput.toString().length);
+  };
+
+  // Fetch spot rates on component mount
+  useEffect(() => {
+    fetchSpotRates();
+  }, []);
+
+  // Fetch spot rates from the API
+  const fetchSpotRates = async () => {
+    const adminId = localStorage.getItem("adminId");
+    if (!adminId) {
+      // setError("Admin ID not found. Please login again.");
+      return;
+    }
+
+    setLoading(true);
+    // setError(null);
+
+    try {
+      const response = await axiosInstance.get(`/spotrates/${adminId}`);
+      const spotData = response.data;
+
+      setSpotRates({
+        goldBidSpread: spotData.goldBidSpread || 0,
+        goldAskSpread: spotData.goldAskSpread || 0,
+      });
+    } catch (err) {
+      console.error("Error fetching spot rates:", err);
+      // setError("Failed to load spot rates. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Price calculation function that uses the fetched spot rates
+  const priceCalculation = (product) => {
+    // Return 0 if missing required data
+    if (!product || !marketData?.bid || !product.purity || !product.weight) {
+      return 0;
+    }
+
+    const troyOunceToGram = 31.103;
+    const conversionFactor = 3.674;
+
+    // Calculate bidding price using the formula:
+    // bid + goldBidSpread + goldAskSpread + 0.5 = biddingPrice
+    let biddingPrice =
+      marketData.bid +
+      (spotRates.goldBidSpread || 0) +
+      (spotRates.goldAskSpread || 0) +
+      0.5;
+    // console.log(biddingPrice)
+
+    let adjustedBid = biddingPrice;
+
+    // Adjust bid price based on premiumDiscountValue
+    if (
+      product.premiumDiscountValue !== undefined &&
+      product.premiumDiscountValue !== null
+    ) {
+      if (product.premiumDiscountValue > 0) {
+        adjustedBid += product.premiumDiscountValue;
+      } else {
+        adjustedBid -= Math.abs(product.premiumDiscountValue);
+      }
+    }
+
+    // Convert troy ounce price to gram price
+    const pricePerGram = adjustedBid / troyOunceToGram;
+
+    // Calculate final price based on weight, purity and conversion factor
+    const finalPrice =
+      pricePerGram *
+      product.weight *
+      calculatePurityPower(product.purity) *
+      conversionFactor;
+
+    return finalPrice.toFixed(0);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -312,8 +400,15 @@ export default function ProductManagement() {
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [existingImages, setExistingImages] = useState([]);
   const [newImages, setNewImages] = useState([]);
+  const [spotRates, setSpotRates] = useState({
+    goldBidSpread: 0,
+    goldAskSpread: 0,
+  });
 
   const MAX_IMAGES = 5;
+
+  // Market Data
+  const { marketData } = useMarketData(["GOLD"]);
 
   // Toast styles
   const toastStyles = {
@@ -467,6 +562,90 @@ export default function ProductManagement() {
     newImages.forEach((img) => form.append("image", img));
     return form;
   }, [formData, newImages]);
+
+  // Helper function to calculate purity power
+  const calculatePurityPower = (purityInput) => {
+    if (!purityInput || isNaN(purityInput)) return 1;
+    return purityInput / Math.pow(10, purityInput.toString().length);
+  };
+
+  // Fetch spot rates on component mount
+  useEffect(() => {
+    fetchSpotRates();
+  }, []);
+
+  // Fetch spot rates from the API
+  const fetchSpotRates = async () => {
+    const adminId = localStorage.getItem("adminId");
+    if (!adminId) {
+      // setError("Admin ID not found. Please login again.");
+      return;
+    }
+
+    setLoading(true);
+    // setError(null);
+
+    try {
+      const response = await axiosInstance.get(`/spotrates/${adminId}`);
+      const spotData = response.data;
+
+      setSpotRates({
+        goldBidSpread: spotData.goldBidSpread || 0,
+        goldAskSpread: spotData.goldAskSpread || 0,
+      });
+    } catch (err) {
+      console.error("Error fetching spot rates:", err);
+      // setError("Failed to load spot rates. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Price calculation function that uses the fetched spot rates
+  const priceCalculation = (product) => {
+    // Return 0 if missing required data
+    if (!product || !marketData?.bid || !product.purity || !product.weight) {
+      return 0;
+    }
+
+    const troyOunceToGram = 31.103;
+    const conversionFactor = 3.674;
+
+    // Calculate bidding price using the formula:
+    // bid + goldBidSpread + goldAskSpread + 0.5 = biddingPrice
+    let biddingPrice =
+      marketData.bid +
+      (spotRates.goldBidSpread || 0) +
+      (spotRates.goldAskSpread || 0) +
+      0.5;
+    // console.log(biddingPrice)
+
+    let adjustedBid = biddingPrice;
+
+    // Adjust bid price based on premiumDiscountValue
+    if (
+      product.premiumDiscountValue !== undefined &&
+      product.premiumDiscountValue !== null
+    ) {
+      if (product.premiumDiscountValue > 0) {
+        adjustedBid += product.premiumDiscountValue;
+      } else {
+        adjustedBid -= Math.abs(product.premiumDiscountValue);
+      }
+    }
+
+    // Convert troy ounce price to gram price
+    const pricePerGram = adjustedBid / troyOunceToGram;
+
+    // Calculate final price based on weight, purity and conversion factor
+    const finalPrice =
+      pricePerGram *
+      product.weight *
+      calculatePurityPower(product.purity) *
+      conversionFactor;
+
+    return finalPrice.toFixed(0);
+  };
 
   // Add product
   const handleAddProduct = useCallback(async () => {
@@ -779,7 +958,8 @@ export default function ProductManagement() {
                       {product.description}
                     </td>
                     <td className="py-3 px-4">
-                      AED {Number(product.price).toFixed(2)}
+                      {/* AED {Number(product.price).toFixed(2)} */}
+                      AED {priceCalculation(product)}
                     </td>
                     <td className="py-3 px-4">{product.weight}</td>
                     <td className="py-3 px-4">{product.purity}</td>
@@ -908,7 +1088,7 @@ export default function ProductManagement() {
         showErrorToast={showErrorToast}
       />
 
-      <Toaster position="top-right" />
+      {/* <Toaster position="top-right" /> */}
     </div>
   );
 }
