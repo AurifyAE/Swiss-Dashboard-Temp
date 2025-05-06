@@ -994,7 +994,7 @@ export default function ProductManagement() {
                       onChange={(e) =>
                         dispatch({
                           type: "UPDATE_MODAL_FIELD",
-                          field: "McPremiumDiscountValue",
+                          field: "premiumDiscountValue",
                           value: e.target.value,
                         })
                       }
