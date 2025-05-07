@@ -119,7 +119,7 @@ const initialState = {
   modal: {
     isOpen: false,
     product: null,
-    markingChargeValue: "",
+    makingChargeValue: "",
     premiumDiscountType: "premium",
     premiumDiscountValue: "",
   },
@@ -178,7 +178,7 @@ const reducer = (state, action) => {
         modal: {
           isOpen: true,
           product: action.payload,
-          markingChargeValue: action.payload.markingChargeValue || "",
+          makingChargeValue: action.payload.makingChargeValue || "",
           premiumDiscountType: action.payload.premiumDiscountType || "premium",
           premiumDiscountValue: action.payload.premiumDiscountValue || "",
         },
@@ -285,7 +285,7 @@ export default function ProductManagement() {
         categoryProducts.forEach((item) => {
           assignedProductsMap.set(item.productId, {
             _id: item._id,
-            markingCharge: item.markingCharge,
+            makingCharge: item.makingCharge,
             pricingType: item.pricingType,
             value: item.value,
             details: item.details,
@@ -297,8 +297,8 @@ export default function ProductManagement() {
           return {
             ...product,
             categoryProductId: assignedInfo ? assignedInfo._id : null,
-            markingChargeType: "markup",
-            markingChargeValue: assignedInfo ? assignedInfo.markingCharge : null,
+            makingChargeType: "markup",
+            makingChargeValue: assignedInfo ? assignedInfo.makingCharge : null,
             premiumDiscountType: assignedInfo ? assignedInfo.pricingType.toLowerCase() : "premium",
             premiumDiscountValue: assignedInfo ? assignedInfo.value : null,
           };
@@ -306,7 +306,7 @@ export default function ProductManagement() {
 
         const assigned = productsWithCharges.filter(
           (product) =>
-            product.markingChargeValue !== null ||
+            product.makingChargeValue !== null ||
             product.premiumDiscountValue !== null
         );
 
@@ -366,7 +366,7 @@ export default function ProductManagement() {
         product.weight *
         calculatePurityPower(product.purity) *
         conversionFactor +
-        (product.markingChargeValue || 0);
+        (product.makingChargeValue || 0);
 
       return finalPrice.toFixed(0);
     },
@@ -430,7 +430,7 @@ export default function ProductManagement() {
 
     try {
       const requestBody = {
-        markingCharge: parseFloat(state.modal.markingChargeValue) || 0,
+        markingCharge: parseFloat(state.modal.makingChargeValue) || 0,
         pricingType:
           state.modal.premiumDiscountType.charAt(0).toUpperCase() +
           state.modal.premiumDiscountType.slice(1),
@@ -466,9 +466,9 @@ export default function ProductManagement() {
   }, [categoryId, state.modal, fetchCategoryProducts, handleCloseModal]);
 
   const handleSaveProductCharges = useCallback(async () => {
-    const { markingChargeValue, premiumDiscountType, premiumDiscountValue } = state.modal;
+    const { makingChargeValue, premiumDiscountType, premiumDiscountValue } = state.modal;
 
-    if (!markingChargeValue && markingChargeValue !== 0) {
+    if (!makingChargeValue && makingChargeValue !== 0) {
       dispatch({
         type: "SHOW_NOTIFICATION",
         payload: { message: "Making charge is required", severity: "error" },
@@ -476,7 +476,7 @@ export default function ProductManagement() {
       return;
     }
 
-    if (isNaN(parseFloat(markingChargeValue))) {
+    if (isNaN(parseFloat(makingChargeValue))) {
       dispatch({
         type: "SHOW_NOTIFICATION",
         payload: { message: "Making charge must be a valid number", severity: "error" },
@@ -525,7 +525,7 @@ export default function ProductManagement() {
     try {
       const requestBody = {
         productId: state.modal.product._id,
-        markingCharge: parseFloat(markingChargeValue) || 0,
+        makingCharge: parseFloat(makingChargeValue) || 0,
         pricingType:
           premiumDiscountType.charAt(0).toUpperCase() + premiumDiscountType.slice(1),
         value: parseFloat(premiumDiscountValue) || 0,
@@ -711,7 +711,7 @@ export default function ProductManagement() {
                 <TableCell align="right">Purity</TableCell>
                 {state.tabValue === 1 && (
                   <>
-                    <TableCell align="right">Marking Charge</TableCell>
+                    <TableCell align="right">Making Charge</TableCell>
                     <TableCell align="right">Premium/Discount</TableCell>
                   </>
                 )}
@@ -787,8 +787,8 @@ export default function ProductManagement() {
                         <>
                           <TableCell align="right">
                             <Typography variant="body2" fontWeight="bold" fontSize="16px">
-                              {product.markingChargeValue !== null
-                                ? `${parseFloat(product.markingChargeValue).toFixed(2)}`
+                              {product.makingChargeValue !== null
+                                ? `${parseFloat(product.makingChargeValue).toFixed(2)}`
                                 : "N/A"}
                             </Typography>
                           </TableCell>
@@ -936,15 +936,15 @@ export default function ProductManagement() {
                 <Grid container spacing={3}>
                   <Grid item xs={12} sm={6}>
                     <TextField
-                      label="Marking Charge"
+                      label="Making Charge"
                       type="number"
                       fullWidth
                       margin="normal"
-                      value={state.modal.markingChargeValue}
+                      value={state.modal.makingChargeValue}
                       onChange={(e) =>
                         dispatch({
                           type: "UPDATE_MODAL_FIELD",
-                          field: "markingChargeValue",
+                          field: "makingChargeValue",
                           value: e.target.value,
                         })
                       }
