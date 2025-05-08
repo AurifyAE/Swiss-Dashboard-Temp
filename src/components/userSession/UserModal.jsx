@@ -20,7 +20,6 @@ const UserModal = ({ open, onClose, onSubmit, user, categories }) => {
     address: "",
     categoryId: "",
     password: "",
-  
   });
 
   const [errors, setErrors] = useState({});
@@ -35,7 +34,6 @@ const UserModal = ({ open, onClose, onSubmit, user, categories }) => {
         address: user.address || "",
         categoryId: user.categoryId || "",
         password: user.decryptedPassword || "",
-        
       });
     } else {
       setUserData({
@@ -45,7 +43,6 @@ const UserModal = ({ open, onClose, onSubmit, user, categories }) => {
         address: "",
         categoryId: "",
         password: "",
-        
       });
     }
     setErrors({});
@@ -97,7 +94,7 @@ const UserModal = ({ open, onClose, onSubmit, user, categories }) => {
         return value.trim().length > 0 ? "" : "Address is required";
 
       case "categoryId":
-        return value ? "" : "Category is required";
+        return true ? "" : "Category is required"; // Modified to accept null values
 
       case "password":
         return value.length >= 8
@@ -131,10 +128,14 @@ const UserModal = ({ open, onClose, onSubmit, user, categories }) => {
     });
 
     if (Object.keys(newErrors).length === 0) {
-      // Convert balance strings to numbers before submitting
-      const processedUserData = {
-        ...userData,
-      };
+      // Create a copy of userData to process
+      const processedUserData = {...userData};
+      
+      // If categoryId is null or empty string, don't include it in the submission
+      if (processedUserData.categoryId === "null") {
+        delete processedUserData.categoryId;
+      }
+      console.log(processedUserData.categoryId)
       
       onSubmit(processedUserData);
       setUserData({
@@ -144,7 +145,6 @@ const UserModal = ({ open, onClose, onSubmit, user, categories }) => {
         address: "",
         categoryId: "",
         password: "",
-       
       });
       setErrors({});
       onClose();
@@ -234,10 +234,10 @@ const UserModal = ({ open, onClose, onSubmit, user, categories }) => {
             fullWidth
             value={userData.categoryId}
             onChange={handleChange}
-            required
             error={!!errors.categoryId}
             helperText={errors.categoryId}
           >
+            <MenuItem value="null">Default</MenuItem>
             {categories.map((category) => (
               <MenuItem key={category._id} value={category._id}>
                 {category.name}

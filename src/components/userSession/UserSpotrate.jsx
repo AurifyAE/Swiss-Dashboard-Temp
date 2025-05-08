@@ -346,6 +346,8 @@ export default function ProductManagement() {
             : product.premiumDiscountValue;
       }
 
+      console.log(product)
+
       const pricePerGram = adjustedBid / troyOunceToGram;
       const finalPrice =
         pricePerGram *

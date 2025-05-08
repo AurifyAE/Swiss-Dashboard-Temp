@@ -93,7 +93,9 @@ const CategoryManagement = ({
   const handleViewCategory = (category) => {
     // console.log(category);
     // navigate(`/user-spot-rate/${user.userSpotRateId}/user/${user._id}/product`);
-    navigate(`/users-category?categoryId=${category._id}&userId=${category.createdBy}`)
+    navigate(
+      `/users-category?categoryId=${category._id}&userId=${category.createdBy}`
+    );
   };
 
   const handleChangeRowsPerPage = (event) => {
@@ -255,7 +257,7 @@ const UserDataTable = ({
     setPage(newPage);
   };
 
-  // console.log(userData)
+  console.log(userData);
 
   const handleChangeRowsPerPage = (event) => {
     setRowsPerPage(+event.target.value);
@@ -273,7 +275,7 @@ const UserDataTable = ({
     // console.log(user)
     navigate(`/user-spot-rate/${spotRateId}/user/${userId}/product`);
   };
-  
+
   // `/users-category?categoryId=${user.categoryId}&userId=${user._id}`
 
   const handleCloseModal = () => {
@@ -297,7 +299,7 @@ const UserDataTable = ({
     { id: "contact", label: "Contact" },
     { id: "email", label: "Email Id" },
     { id: "spotrate", label: "SpotRate" },
-    { id: "address", label: "Address" },
+    { id: "category", label: "Category" },
     { id: "password", label: "Password" },
     { id: "actions", label: "Actions" },
   ];
@@ -367,7 +369,7 @@ const UserDataTable = ({
                       User Spotrate
                     </Button>
                   </TableCell>
-                  <TableCell>{user.address}</TableCell>
+                  <TableCell>{user.categoryName || "Default"}</TableCell>
                   <TableCell>{user.decryptedPassword}</TableCell>
                   <TableCell>
                     <div className="flex items-center">
@@ -448,8 +450,13 @@ const UserList = () => {
     try {
       const response = await axiosInstance.get(`/get-users/${adminId}`);
       if (response.data.success) {
-        setUserData(response.data.users);
-        // console.log(response.data.users, adminId)
+        // Map through users to ensure categoryName is properly handled
+        const processedUsers = response.data.users.map((user) => ({
+          ...user,
+          // Ensure categoryName is properly set, even if null or undefined
+          categoryName: user.categoryName || "Default",
+        }));
+        setUserData(processedUsers);
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
@@ -522,23 +529,27 @@ const UserList = () => {
     try {
       const newUser = {
         name: userData.name,
-        email: userData.email, // Added email field
+        email: userData.email,
         contact: userData.contact,
         address: userData.address,
-        categoryId: userData.categoryId,
         password: userData.password,
       };
-
+      
+      // Only add categoryId if it exists and is not empty
+      if (userData.categoryId) {
+        newUser.categoryId = userData.categoryId;
+      }
+  
       const response = await axiosInstance.post(
         `/add-users/${adminId}`,
         newUser
       );
+      
       if (response.data.success) {
-        setUserData((prevUserData) => [...prevUserData, response.data.user]);
         setShowNotification(true);
-        await fetchUserData();
         setNotificationMessage("User added successfully");
-        await fetchUserData(); // Refresh the user list after adding
+        // Refresh user data to get updated list from server
+        await fetchUserData();
       }
     } catch (error) {
       console.error(
