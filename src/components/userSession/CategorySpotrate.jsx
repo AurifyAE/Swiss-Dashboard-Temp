@@ -155,14 +155,10 @@ const reducer = (state, action) => {
       return {
         ...state,
         filteredProducts: state.filteredProducts.map((p) =>
-          p._id === action.payload
-            ? { ...p, isSelected: !p.isSelected }
-            : p
+          p._id === action.payload ? { ...p, isSelected: !p.isSelected } : p
         ),
         filteredAssignedProducts: state.filteredAssignedProducts.map((p) =>
-          p._id === action.payload
-            ? { ...p, isSelected: !p.isSelected }
-            : p
+          p._id === action.payload ? { ...p, isSelected: !p.isSelected } : p
         ),
         selectedProductIds: state.selectedProductIds.includes(action.payload)
           ? state.selectedProductIds.filter((id) => id !== action.payload)
@@ -191,7 +187,10 @@ const reducer = (state, action) => {
         modal: { ...state.modal, [action.field]: action.value },
       };
     case "OPEN_DELETE_MODAL":
-      return { ...state, deleteModal: { isOpen: true, product: action.payload } };
+      return {
+        ...state,
+        deleteModal: { isOpen: true, product: action.payload },
+      };
     case "CLOSE_DELETE_MODAL":
       return { ...state, deleteModal: initialState.deleteModal };
     case "SHOW_NOTIFICATION":
@@ -204,7 +203,10 @@ const reducer = (state, action) => {
         },
       };
     case "HIDE_NOTIFICATION":
-      return { ...state, notification: { ...state.notification, isOpen: false } };
+      return {
+        ...state,
+        notification: { ...state.notification, isOpen: false },
+      };
     case "FILTER_PRODUCTS":
       return {
         ...state,
@@ -264,7 +266,8 @@ export default function ProductManagement() {
   const fetchCategoryProducts = useCallback(async () => {
     dispatch({ type: "SET_LOADING", payload: true });
     try {
-      const adminId = localStorage.getItem("adminId") || "67c1a8978399ea3181f5cad9";
+      const adminId =
+        localStorage.getItem("adminId") || "67c1a8978399ea3181f5cad9";
       const [allProductsResponse, categoryResponse] = await Promise.all([
         axiosInstance.get(`/get-all-product/${adminId}`),
         axiosInstance.get(`/categories/${categoryId}`),
@@ -299,7 +302,9 @@ export default function ProductManagement() {
             categoryProductId: assignedInfo ? assignedInfo._id : null,
             makingChargeType: "markup",
             makingChargeValue: assignedInfo ? assignedInfo.makingCharge : null,
-            premiumDiscountType: assignedInfo ? assignedInfo.pricingType.toLowerCase() : "premium",
+            premiumDiscountType: assignedInfo
+              ? assignedInfo.pricingType.toLowerCase()
+              : "premium",
             premiumDiscountValue: assignedInfo ? assignedInfo.value : null,
           };
         });
@@ -342,7 +347,8 @@ export default function ProductManagement() {
 
   const priceCalculation = useCallback(
     (product) => {
-      if (!product || !marketData?.bid || !product.purity || !product.weight) return 0;
+      if (!product || !marketData?.bid || !product.purity || !product.weight)
+        return 0;
 
       const troyOunceToGram = 31.103;
       const conversionFactor = 3.674;
@@ -353,26 +359,35 @@ export default function ProductManagement() {
         0.5;
       let adjustedBid = biddingPrice;
 
-      if (product.premiumDiscountValue !== undefined && product.premiumDiscountValue !== null) {
+      // Only apply premium/discount if not on tab 0
+      if (
+        state.tabValue !== 0 &&
+        product.premiumDiscountValue !== undefined &&
+        product.premiumDiscountValue !== null
+      ) {
         adjustedBid +=
           product.premiumDiscountType === "discount"
             ? -Math.abs(product.premiumDiscountValue)
             : product.premiumDiscountValue;
       }
 
-      // console.log(product)
-
       const pricePerGram = adjustedBid / troyOunceToGram;
-      const finalPrice =
+
+      // Calculate the base price
+      let finalPrice =
         pricePerGram *
         product.weight *
         calculatePurityPower(product.purity) *
-        conversionFactor +
-        (product.makingChargeValue || 0);
+        conversionFactor;
+
+      // Only add making charge if not on tab 0
+      if (state.tabValue !== 0 && product.makingChargeValue) {
+        finalPrice += product.makingChargeValue;
+      }
 
       return finalPrice.toFixed(0);
     },
-    [marketData, state.spotRates, calculatePurityPower]
+    [marketData, state.spotRates, calculatePurityPower, state.tabValue]
   );
 
   // Handlers
@@ -417,7 +432,10 @@ export default function ProductManagement() {
     if (!state.modal.premiumDiscountType) {
       dispatch({
         type: "SHOW_NOTIFICATION",
-        payload: { message: "Please select Premium/Discount type", severity: "error" },
+        payload: {
+          message: "Please select Premium/Discount type",
+          severity: "error",
+        },
       });
       return;
     }
@@ -454,7 +472,9 @@ export default function ProductManagement() {
           payload: { message: "Product charges updated successfully" },
         });
       } else {
-        throw new Error(response.data.message || "Failed to update product charges");
+        throw new Error(
+          response.data.message || "Failed to update product charges"
+        );
       }
     } catch (error) {
       dispatch({
@@ -468,7 +488,8 @@ export default function ProductManagement() {
   }, [categoryId, state.modal, fetchCategoryProducts, handleCloseModal]);
 
   const handleSaveProductCharges = useCallback(async () => {
-    const { makingChargeValue, premiumDiscountType, premiumDiscountValue } = state.modal;
+    const { makingChargeValue, premiumDiscountType, premiumDiscountValue } =
+      state.modal;
 
     if (!makingChargeValue && makingChargeValue !== 0) {
       dispatch({
@@ -481,7 +502,10 @@ export default function ProductManagement() {
     if (isNaN(parseFloat(makingChargeValue))) {
       dispatch({
         type: "SHOW_NOTIFICATION",
-        payload: { message: "Making charge must be a valid number", severity: "error" },
+        payload: {
+          message: "Making charge must be a valid number",
+          severity: "error",
+        },
       });
       return;
     }
@@ -489,7 +513,10 @@ export default function ProductManagement() {
     if (!premiumDiscountType) {
       dispatch({
         type: "SHOW_NOTIFICATION",
-        payload: { message: "Please select Premium/Discount type", severity: "error" },
+        payload: {
+          message: "Please select Premium/Discount type",
+          severity: "error",
+        },
       });
       return;
     }
@@ -497,7 +524,10 @@ export default function ProductManagement() {
     if (!premiumDiscountValue && premiumDiscountValue !== 0) {
       dispatch({
         type: "SHOW_NOTIFICATION",
-        payload: { message: "Premium/Discount value is required", severity: "error" },
+        payload: {
+          message: "Premium/Discount value is required",
+          severity: "error",
+        },
       });
       return;
     }
@@ -529,7 +559,8 @@ export default function ProductManagement() {
         productId: state.modal.product._id,
         makingCharge: parseFloat(makingChargeValue) || 0,
         pricingType:
-          premiumDiscountType.charAt(0).toUpperCase() + premiumDiscountType.slice(1),
+          premiumDiscountType.charAt(0).toUpperCase() +
+          premiumDiscountType.slice(1),
         value: parseFloat(premiumDiscountValue) || 0,
         isActive: true,
       };
@@ -560,10 +591,16 @@ export default function ProductManagement() {
   }, [state.modal, categoryId, fetchCategoryProducts, handleCloseModal]);
 
   const handleDeleteProductFromCategory = useCallback(async () => {
-    if (!state.deleteModal.product || !state.deleteModal.product.categoryProductId) {
+    if (
+      !state.deleteModal.product ||
+      !state.deleteModal.product.categoryProductId
+    ) {
       dispatch({
         type: "SHOW_NOTIFICATION",
-        payload: { message: "Invalid product or category product ID", severity: "error" },
+        payload: {
+          message: "Invalid product or category product ID",
+          severity: "error",
+        },
       });
       return;
     }
@@ -582,7 +619,9 @@ export default function ProductManagement() {
           payload: { message: "Product removed from category successfully" },
         });
       } else {
-        throw new Error(response.data.message || "Failed to remove product from category");
+        throw new Error(
+          response.data.message || "Failed to remove product from category"
+        );
       }
     } catch (error) {
       dispatch({
@@ -593,7 +632,12 @@ export default function ProductManagement() {
         },
       });
     }
-  }, [categoryId, state.deleteModal, fetchCategoryProducts, handleCloseDeleteModal]);
+  }, [
+    categoryId,
+    state.deleteModal,
+    fetchCategoryProducts,
+    handleCloseDeleteModal,
+  ]);
 
   const handleCloseNotification = useCallback((event, reason) => {
     if (reason === "clickaway") return;
@@ -609,12 +653,19 @@ export default function ProductManagement() {
   // Pagination Logic
   const paginatedProducts = useMemo(() => {
     const currentProducts =
-      state.tabValue === 0 ? state.filteredProducts : state.filteredAssignedProducts;
+      state.tabValue === 0
+        ? state.filteredProducts
+        : state.filteredAssignedProducts;
     return currentProducts.slice(
       (state.page - 1) * productsPerPage,
       state.page * productsPerPage
     );
-  }, [state.tabValue, state.filteredProducts, state.filteredAssignedProducts, state.page]);
+  }, [
+    state.tabValue,
+    state.filteredProducts,
+    state.filteredAssignedProducts,
+    state.page,
+  ]);
 
   const totalPages = useMemo(
     () =>
@@ -623,13 +674,22 @@ export default function ProductManagement() {
           ? state.filteredProducts.length
           : state.filteredAssignedProducts.length) / productsPerPage
       ),
-    [state.tabValue, state.filteredProducts.length, state.filteredAssignedProducts.length]
+    [
+      state.tabValue,
+      state.filteredProducts.length,
+      state.filteredAssignedProducts.length,
+    ]
   );
 
   // Render
   if (state.loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+        height="100vh"
+      >
         <CircularProgress color="primary" />
       </Box>
     );
@@ -640,7 +700,12 @@ export default function ProductManagement() {
       <Box p={4}>
         {/* Category Title */}
         {state.categoryData && (
-          <Typography variant="h5" gutterBottom fontWeight="bold" color="primary">
+          <Typography
+            variant="h5"
+            gutterBottom
+            fontWeight="bold"
+            color="primary"
+          >
             Selected Category: {state.categoryData.name}
           </Typography>
         )}
@@ -670,7 +735,9 @@ export default function ProductManagement() {
             textColor="primary"
           >
             <Tab label="All Products" />
-            <Tab label={`Assigned Products (${state.assignedProducts.length})`} />
+            <Tab
+              label={`Assigned Products (${state.assignedProducts.length})`}
+            />
           </StyledTabs>
         </Box>
 
@@ -741,7 +808,9 @@ export default function ProductManagement() {
                     >
                       <TableCell>
                         <ProductImage
-                          src={product.images[0]?.url || "/placeholder-image.png"}
+                          src={
+                            product.images[0]?.url || "/placeholder-image.png"
+                          }
                           alt={product.title}
                         />
                       </TableCell>
@@ -769,7 +838,10 @@ export default function ProductManagement() {
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
-                        <Typography variant="body2" sx={{ fontSize: "16px", fontWeight: "bold" }}>
+                        <Typography
+                          variant="body2"
+                          sx={{ fontSize: "16px", fontWeight: "bold" }}
+                        >
                           {product.weight} g
                         </Typography>
                       </TableCell>
@@ -779,7 +851,10 @@ export default function ProductManagement() {
                           sx={{
                             fontSize: "18px",
                             fontWeight: "bold",
-                            color: product.purity >= 90 ? "success.main" : "text.secondary",
+                            color:
+                              product.purity >= 90
+                                ? "success.main"
+                                : "text.secondary",
                           }}
                         >
                           {product.purity}
@@ -788,9 +863,15 @@ export default function ProductManagement() {
                       {state.tabValue === 1 && (
                         <>
                           <TableCell align="right">
-                            <Typography variant="body2" fontWeight="bold" fontSize="16px">
+                            <Typography
+                              variant="body2"
+                              fontWeight="bold"
+                              fontSize="16px"
+                            >
                               {product.makingChargeValue !== null
-                                ? `${parseFloat(product.makingChargeValue).toFixed(2)}`
+                                ? `${parseFloat(
+                                    product.makingChargeValue
+                                  ).toFixed(2)}`
                                 : "N/A"}
                             </Typography>
                           </TableCell>
@@ -807,14 +888,21 @@ export default function ProductManagement() {
                             >
                               {product.premiumDiscountValue !== null
                                 ? `${
-                                    product.premiumDiscountType === "premium" ? "+" : "-"
-                                  }${parseFloat(product.premiumDiscountValue).toFixed(2)}`
+                                    product.premiumDiscountType === "premium"
+                                      ? "+"
+                                      : "-"
+                                  }${parseFloat(
+                                    product.premiumDiscountValue
+                                  ).toFixed(2)}`
                                 : "N/A"}
                             </Typography>
                           </TableCell>
                         </>
                       )}
-                      <TableCell align="center" onClick={(e) => e.stopPropagation()}>
+                      <TableCell
+                        align="center"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <Button
                           variant="subtitle1"
                           color="primary"
@@ -827,10 +915,13 @@ export default function ProductManagement() {
                           sx={{
                             borderRadius: "20px",
                             boxShadow: 2,
-                            backgroundImage: "linear-gradient(to right, #E9FAFF, #EEF3F9)",
+                            backgroundImage:
+                              "linear-gradient(to right, #E9FAFF, #EEF3F9)",
                           }}
                         >
-                          {state.tabValue === 0 ? "Add Charges" : "Edit Charges"}
+                          {state.tabValue === 0
+                            ? "Add Charges"
+                            : "Edit Charges"}
                         </Button>
                         {state.tabValue === 1 && (
                           <Button
@@ -857,9 +948,14 @@ export default function ProductManagement() {
                 })
               ) : (
                 <TableRow>
-                  <TableCell colSpan={state.tabValue === 0 ? 6 : 8} align="center">
+                  <TableCell
+                    colSpan={state.tabValue === 0 ? 6 : 8}
+                    align="center"
+                  >
                     <Typography variant="subtitle1" py={4}>
-                      {state.tabValue === 0 ? "No products found" : "No assigned products found"}
+                      {state.tabValue === 0
+                        ? "No products found"
+                        : "No assigned products found"}
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -883,12 +979,26 @@ export default function ProductManagement() {
         )}
 
         {/* Product Detail Modal */}
-        <Modal open={state.modal.isOpen} onClose={handleCloseModal} aria-labelledby="product-modal-title">
+        <Modal
+          open={state.modal.isOpen}
+          onClose={handleCloseModal}
+          aria-labelledby="product-modal-title"
+        >
           <ModalContent>
             {state.modal.product && (
               <>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                  <Typography id="product-modal-title" variant="h5" component="h2" fontWeight="bold">
+                <Box
+                  display="flex"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  mb={2}
+                >
+                  <Typography
+                    id="product-modal-title"
+                    variant="h5"
+                    component="h2"
+                    fontWeight="bold"
+                  >
                     Product Details
                   </Typography>
                   <IconButton onClick={handleCloseModal} size="small">
@@ -900,29 +1010,45 @@ export default function ProductManagement() {
 
                 <Box display="flex" flexDirection="row" gap={3} mb={3}>
                   <ProductModalImage
-                    src={state.modal.product.images[0]?.url || "/placeholder-image.png"}
+                    src={
+                      state.modal.product.images[0]?.url ||
+                      "/placeholder-image.png"
+                    }
                     alt={state.modal.product.title}
                   />
                   <Box>
                     <Typography variant="h6" fontWeight="bold" gutterBottom>
                       {state.modal.product.title}
                     </Typography>
-                    <Typography variant="body1" color="text.secondary" gutterBottom>
+                    <Typography
+                      variant="body1"
+                      color="text.secondary"
+                      gutterBottom
+                    >
                       Price:{" "}
                       <span style={{ fontWeight: "bold", color: "#1976d2" }}>
                         AED {priceCalculation(state.modal.product)}
                       </span>
                     </Typography>
-                    <Typography variant="body1" color="text.secondary" gutterBottom>
+                    <Typography
+                      variant="body1"
+                      color="text.secondary"
+                      gutterBottom
+                    >
                       Weight:{" "}
-                      <span style={{ fontWeight: "bold" }}>{state.modal.product.weight} g</span>
+                      <span style={{ fontWeight: "bold" }}>
+                        {state.modal.product.weight} g
+                      </span>
                     </Typography>
                     <Typography variant="body1" color="text.secondary">
                       Purity:{" "}
                       <span
                         style={{
                           fontWeight: "bold",
-                          color: state.modal.product.purity >= 90 ? "#2e7d32" : "inherit",
+                          color:
+                            state.modal.product.purity >= 90
+                              ? "#2e7d32"
+                              : "inherit",
                         }}
                       >
                         {state.modal.product.purity}
@@ -953,9 +1079,13 @@ export default function ProductManagement() {
                       sx={{
                         "& .MuiOutlinedInput-root": {
                           "& fieldset": { borderColor: "rgba(0, 0, 0, 0.23)" },
-                          "&:hover fieldset": { borderColor: "rgba(0, 0, 0, 0.23)" },
+                          "&:hover fieldset": {
+                            borderColor: "rgba(0, 0, 0, 0.23)",
+                          },
                         },
-                        "& input[type=number]": { "-moz-appearance": "textfield" },
+                        "& input[type=number]": {
+                          "-moz-appearance": "textfield",
+                        },
                         "& input[type=number]::-webkit-outer-spin-button": {
                           "-webkit-appearance": "none",
                           margin: 0,
@@ -1003,9 +1133,13 @@ export default function ProductManagement() {
                       sx={{
                         "& .MuiOutlinedInput-root": {
                           "& fieldset": { borderColor: "rgba(0, 0, 0, 0.23)" },
-                          "&:hover fieldset": { borderColor: "rgba(0, 0, 0, 0.23)" },
+                          "&:hover fieldset": {
+                            borderColor: "rgba(0, 0, 0, 0.23)",
+                          },
                         },
-                        "& input[type=number]": { "-moz-appearance": "textfield" },
+                        "& input[type=number]": {
+                          "-moz-appearance": "textfield",
+                        },
                         "& input[type=number]::-webkit-outer-spin-button": {
                           "-webkit-appearance": "none",
                           margin: 0,
@@ -1020,7 +1154,12 @@ export default function ProductManagement() {
                 </Grid>
 
                 <Box display="flex" justifyContent="flex-end" mt={4}>
-                  <Button variant="outlined" color="inherit" onClick={handleCloseModal} sx={{ mr: 2 }}>
+                  <Button
+                    variant="outlined"
+                    color="inherit"
+                    onClick={handleCloseModal}
+                    sx={{ mr: 2 }}
+                  >
                     Cancel
                   </Button>
                   {state.tabValue === 0 ? (
@@ -1029,7 +1168,10 @@ export default function ProductManagement() {
                       color="primary"
                       startIcon={<SaveIcon />}
                       onClick={handleSaveProductCharges}
-                      sx={{ background: "linear-gradient(to right, #4338ca, #3730a3)" }}
+                      sx={{
+                        background:
+                          "linear-gradient(to right, #4338ca, #3730a3)",
+                      }}
                     >
                       Apply Charges
                     </Button>
@@ -1039,7 +1181,10 @@ export default function ProductManagement() {
                       color="primary"
                       startIcon={<SaveIcon />}
                       onClick={handleUpdateProductCharges}
-                      sx={{ background: "linear-gradient(to right, #4338ca, #3730a3)" }}
+                      sx={{
+                        background:
+                          "linear-gradient(to right, #4338ca, #3730a3)",
+                      }}
                     >
                       Apply Charges
                     </Button>
@@ -1057,8 +1202,18 @@ export default function ProductManagement() {
           aria-labelledby="delete-modal-title"
         >
           <ModalContent>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-              <Typography id="delete-modal-title" variant="h5" component="h2" fontWeight="bold">
+            <Box
+              display="flex"
+              justifyContent="space-between"
+              alignItems="center"
+              mb={2}
+            >
+              <Typography
+                id="delete-modal-title"
+                variant="h5"
+                component="h2"
+                fontWeight="bold"
+              >
                 Confirm Deletion
               </Typography>
               <IconButton onClick={handleCloseDeleteModal} size="small">
@@ -1070,8 +1225,8 @@ export default function ProductManagement() {
 
             <Typography variant="body1" color="text.secondary" mb={3}>
               Are you sure you want to remove{" "}
-              <strong>{state.deleteModal.product?.title}</strong> from the category? This
-              action cannot be undone.
+              <strong>{state.deleteModal.product?.title}</strong> from the
+              category? This action cannot be undone.
             </Typography>
 
             <Box display="flex" justifyContent="flex-end" mt={4}>
