@@ -515,7 +515,7 @@ const TransactionRow = ({
     const handleClickOutside = (event) => {
       if (
         showDropdown &&
-        dropdownRef.current && 
+        dropdownRef.current &&
         !dropdownRef.current.contains(event.target) &&
         statusButtonRef.current &&
         !statusButtonRef.current.contains(event.target)
@@ -523,7 +523,7 @@ const TransactionRow = ({
         setShowDropdown(false);
       }
     };
-    
+
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [showDropdown]);
@@ -899,7 +899,7 @@ const TransactionTable = ({
   const [expandedRowId, setExpandedRowId] = useState(null);
   const [sortConfig, setSortConfig] = useState({
     key: "date",
-    direction: "desc",
+    direction: "desc", // Default sorting remains descending
   });
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -919,6 +919,8 @@ const TransactionTable = ({
     try {
       const response = await axiosInstance.get(`/booking/${adminId}`);
       const newOrders = response.data.orderDetails;
+
+      // console.log("Raw orders from API:", newOrders); // Debug log
 
       const transformedOrders = newOrders.map((order) => {
         const customerData = {
@@ -958,6 +960,20 @@ const TransactionTable = ({
             };
           }) || [];
 
+        // Get timestamp from multiple possible sources
+        let timestamp;
+        if (order.createdAt) {
+          timestamp = new Date(order.createdAt).getTime();
+        } else if (order.orderDate) {
+          timestamp = new Date(order.orderDate).getTime();
+        } else if (order._id && order._id.length >= 8) {
+          // MongoDB ObjectIDs contain a timestamp in the first 4 bytes
+          timestamp = parseInt(order._id.substring(0, 8), 16) * 1000;
+        } else {
+          // Fallback timestamp
+          timestamp = 0;
+        }
+
         return {
           orderId: order._id,
           id:
@@ -967,6 +983,7 @@ const TransactionTable = ({
           date: order.orderDate
             ? new Date(order.orderDate).toLocaleDateString()
             : "N/A",
+          timestamp: timestamp, // Store numerical timestamp for reliable sorting
           paymentMethod: order.paymentMethod || "N/A",
           status: order.orderStatus || "N/A",
           pricingOption: order.pricingScheme || "N/A",
@@ -974,10 +991,27 @@ const TransactionTable = ({
           totalWeight: order.totalWeight || 0,
           customer: customerData,
           products: orderProducts,
+          // Store original data for debugging
+          _originalOrder: order,
         };
       });
 
-      setOrders(transformedOrders);
+      // console.log(
+      //   "Transformed orders with timestamps:",
+      //   transformedOrders.map((o) => ({
+      //     id: o.id,
+      //     date: o.date,
+      //     timestamp: o.timestamp,
+      //   }))
+      // );
+
+      // Sort orders in LIFO (Last In, First Out) order using timestamps
+      // Higher timestamp = newer order = should come first
+      const sortedOrders = transformedOrders.sort(
+        (a, b) => b.timestamp - a.timestamp
+      );
+
+      setOrders(sortedOrders);
       toast.success("Orders loaded successfully", { id: toastId });
     } catch (error) {
       console.error("Error fetching orders:", error);
@@ -1045,7 +1079,16 @@ const TransactionTable = ({
     });
   }, [orders, timeFilter, statusFilter, searchQuery]);
 
+  // We'll maintain the sort functionality but ensure default is LIFO
   const sortedTransactions = useMemo(() => {
+    // If the sort key is 'date', use the rawDate property for accurate date sorting
+    if (sortConfig.key === "date") {
+      return [...filteredTransactions].sort((a, b) => {
+        const direction = sortConfig.direction === "asc" ? 1 : -1;
+        return direction * (a.rawDate - b.rawDate);
+      });
+    }
+    // Otherwise, apply the requested sort to other fields
     return [...filteredTransactions].sort((a, b) => {
       const aValue = a[sortConfig.key];
       const bValue = b[sortConfig.key];

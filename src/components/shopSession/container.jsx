@@ -458,8 +458,7 @@ export default function ProductManagement() {
   const fetchProducts = useCallback(async () => {
     try {
       setLoading(true);
-      const adminId =
-        localStorage.getItem("adminId") || "67c1a8978399ea3181f5cad9";
+      const adminId = localStorage.getItem("adminId");
       const response = await axios.get(`/get-all-product/${adminId}`);
       // console.log("Fetch products response:", response.data);
       if (response.data.success) {
@@ -649,6 +648,12 @@ export default function ProductManagement() {
 
   // Add product
   const handleAddProduct = useCallback(async () => {
+    const adminId = localStorage.getItem("adminId");
+    if (!adminId) {
+      // setError("Admin ID not found. Please login again.");
+      return;
+    }
+
     const loadingToast = toast.loading("Adding product...", {
       style: {
         border: "2px solid #3B82F6",
@@ -662,7 +667,7 @@ export default function ProductManagement() {
     try {
       const formData = prepareFormData();
       const response = await axios.post(
-        "/add-products?adminId=67c1a8978399ea3181f5cad9",
+        `/add-products?adminId=${adminId}`,
         formData,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
@@ -738,7 +743,7 @@ export default function ProductManagement() {
   // Delete product (Updated)
   const handleDeleteProduct = useCallback(
     (productId) => {
-      console.log("Attempting to delete product with ID:", productId);
+      // console.log("Attempting to delete product with ID:", productId);
 
       const confirmToast = toast(
         (t) => (
@@ -781,7 +786,7 @@ export default function ProductManagement() {
       );
 
       const performDeletion = async (id) => {
-        console.log(id);
+        // console.log(id);
         const loadingToast = toast.loading("Deleting product...", {
           style: {
             border: "2px solid #3B82F6",
