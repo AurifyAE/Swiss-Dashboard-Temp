@@ -27,6 +27,7 @@ import {
   Divider,
   Tabs,
   Tab,
+  Chip,
 } from "@mui/material";
 import {
   Search as SearchIcon,
@@ -266,8 +267,7 @@ export default function ProductManagement() {
   const fetchCategoryProducts = useCallback(async () => {
     dispatch({ type: "SET_LOADING", payload: true });
     try {
-      const adminId =
-        localStorage.getItem("adminId") || "67c1a8978399ea3181f5cad9";
+      const adminId = localStorage.getItem("adminId");
       const [allProductsResponse, categoryResponse] = await Promise.all([
         axiosInstance.get(`/get-all-product/${adminId}`),
         axiosInstance.get(`/categories/${categoryId}`),
@@ -338,6 +338,15 @@ export default function ProductManagement() {
       dispatch({ type: "SET_LOADING", payload: false });
     }
   }, [categoryId]);
+
+  // Total Stock Count
+  const totalStockCount = useMemo(() => {
+    const currentProducts =
+      state.tabValue === 0
+        ? state.filteredProducts
+        : state.filteredAssignedProducts;
+    return currentProducts.filter((product) => product.stock === true).length;
+  }, [state.tabValue, state.filteredProducts, state.filteredAssignedProducts]);
 
   // Price Calculation
   const calculatePurityPower = useCallback((purityInput) => {
@@ -741,32 +750,39 @@ export default function ProductManagement() {
           </StyledTabs>
         </Box>
 
-        {/* Search Box */}
-        <TextField
-          placeholder="Search products..."
-          value={state.searchTerm}
-          onChange={(e) => handleSearch(e.target.value)}
-          variant="outlined"
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon color="primary" />
-              </InputAdornment>
-            ),
-          }}
-          sx={{
-            mb: 3,
-            "& .MuiOutlinedInput-root": {
-              height: "45px",
-              borderRadius: "30px",
-              border: "2px solid #2196f3",
-              backgroundColor: "#fff",
-              transition: "border-color 0.3s, box-shadow 0.3s",
-              paddingLeft: 1,
-              "& .MuiOutlinedInput-notchedOutline": { border: "none" },
-            },
-          }}
-        />
+        <Box className="flex flex-row justify-between">
+          {/* Search Box */}
+          <TextField
+            placeholder="Search products..."
+            value={state.searchTerm}
+            onChange={(e) => handleSearch(e.target.value)}
+            variant="outlined"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon color="primary" />
+                </InputAdornment>
+              ),
+            }}
+            sx={{
+              mb: 3,
+              "& .MuiOutlinedInput-root": {
+                height: "45px",
+                borderRadius: "30px",
+                border: "2px solid #2196f3",
+                backgroundColor: "#fff",
+                transition: "border-color 0.3s, box-shadow 0.3s",
+                paddingLeft: 1,
+                "& .MuiOutlinedInput-notchedOutline": { border: "none" },
+              },
+            }}
+          />
+
+          {/* Total Stock Count */}
+          <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 3, fontWeight: "600" }}>
+            Total Products In Stock: <strong>{totalStockCount}</strong>
+          </Typography>
+        </Box>
 
         {/* Product Table */}
         <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
@@ -819,6 +835,7 @@ export default function ProductManagement() {
                           <Typography variant="subtitle1" fontWeight="bold">
                             {product.title}
                           </Typography>
+
                           {isAssigned && state.tabValue === 0 && (
                             <CheckCircleIcon
                               color="success"
@@ -826,8 +843,15 @@ export default function ProductManagement() {
                               titleAccess="Assigned"
                             />
                           )}
+                          <Chip
+                            label={product.stock ? "In Stock" : "Out of Stock"}
+                            color={product.stock ? "success" : "error"}
+                            size="small"
+                            variant="outlined"
+                          />
                         </Box>
                       </TableCell>
+
                       <TableCell align="right">
                         <Typography
                           variant="subtitle1"

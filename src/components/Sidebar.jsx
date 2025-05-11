@@ -12,7 +12,7 @@ import {
   Shield,
   Wallet,
   Images,
-} from "lucide-react"; // Added the relevant icons from lucide-react
+} from "lucide-react";
 
 import logo from "../assets/logo.jpg";
 
@@ -50,84 +50,119 @@ const Sidebar = () => {
   };
 
   return (
-    <div className="w-64 bg-white shadow-lg flex flex-col p-5 h-screen fixed">
-      {/* Logo Section */}
-      <div className="flex items-center gap-3 -mt-14">
-        <img src={logo} alt="Aurify Logo" className="h-40" />
-      </div>
-
-      {/* Navigation Items */}
-      <nav className="flex flex-col space-y-3 -mt-10">
-        <SidebarItem
-          icon={
-            <LayoutDashboard
-              strokeWidth={1.5}
-              size={22}
-              className="text-white"
-            />
+    <aside className="w-64 bg-white shadow-lg h-screen fixed overflow-hidden flex flex-col">
+      {/* Scrollable area with clean scrollbar - no arrows */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-5">
+        <style jsx>{`
+          .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
           }
-          text="Dashboard"
-          to="/dashboard"
-          active={location.pathname === "/dashboard"}
-        />
-        <SidebarItem
-          icon={
-            <ShoppingCart strokeWidth={1.5} size={22} className="text-white" />
+          .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #d1d5db;
+            border-radius: 20px;
           }
-          text="Spot Rate"
-          to="/spot-rate"
-          active={location.pathname === "/spot-rate"}
-        />
-        <SidebarItem
-          icon={
-            <ShoppingCart strokeWidth={1.5} size={22} className="text-white" />
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background-color: #9ca3af;
           }
-          text="Shop"
-          to="/shop"
-          active={location.pathname === "/shop"}
-        />
-        <SidebarItem
-          icon={<Users strokeWidth={1.5} size={22} className="text-white" />}
-          text="Customers"
-          to="/customers"
-          active={location.pathname === "/customers"}
-        />
-        <SidebarItem
-          icon={<FileText strokeWidth={1.5} size={22} className="text-white" />}
-          text="Orders"
-          to="/orders"
-          active={location.pathname === "/orders"}
-        />
-        <SidebarItem
-          icon={<Images strokeWidth={1.5} size={22} className="text-white" />}
-          text="Banner"
-          to="/banner"
-          active={location.pathname === "/banner"}
-        />
-      </nav>
-
-      <nav className="flex flex-col space-y-2 mt-8">
-        {/* Company Pages Section */}
-        <div className="text-[#1A3C70] text-sm font-medium ml-3 mb-3">
-          COMPANY PAGES
+          .custom-scrollbar::-webkit-scrollbar-track {
+            background-color: transparent;
+          }
+          .custom-scrollbar::-webkit-scrollbar-button {
+            display: none;
+          }
+        `}</style>
+        {/* Logo Section */}
+        <div className="flex items-center gap-3 mb-6">
+          <img src={logo} alt="Aurify Logo" className="h-14" />
         </div>
-        <SidebarItem
-          icon={<Shield strokeWidth={1.5} size={22} className="text-white" />}
-          text="Company Profile"
-          to="/profile"
-          active={location.pathname === "/profile"}
-        />
-        <SidebarItem
-          icon={<Wallet strokeWidth={1.5} size={22} className="text-white" />}
-          text="Bank Details"
-          to="/bank"
-          active={location.pathname === "/bank"}
-        />
-      </nav>
 
-      <nav className="flex flex-col space-y-2 mt-8">
-        {/* Help & Logout */}
-        <div className="mt-auto">
+        {/* Navigation Items */}
+        <nav className="flex flex-col space-y-3 mb-8">
+          <SidebarItem
+            icon={
+              <LayoutDashboard
+                strokeWidth={1.5}
+                size={22}
+                className="text-white"
+              />
+            }
+            text="Dashboard"
+            to="/dashboard"
+            active={location.pathname === "/dashboard"}
+          />
+          <SidebarItem
+            icon={
+              <ShoppingCart
+                strokeWidth={1.5}
+                size={22}
+                className="text-white"
+              />
+            }
+            text="Spot Rate"
+            to="/spot-rate"
+            active={location.pathname === "/spot-rate"}
+          />
+          <SidebarItem
+            icon={
+              <ShoppingCart
+                strokeWidth={1.5}
+                size={22}
+                className="text-white"
+              />
+            }
+            text="Shop"
+            to="/shop"
+            active={location.pathname === "/shop"}
+          />
+          <SidebarItem
+            icon={<Users strokeWidth={1.5} size={22} className="text-white" />}
+            text="Customers"
+            to="/customers"
+            active={location.pathname === "/customers"}
+          />
+          <SidebarItem
+            icon={
+              <FileText strokeWidth={1.5} size={22} className="text-white" />
+            }
+            text="Orders"
+            to="/orders"
+            active={location.pathname === "/orders"}
+          />
+          <SidebarItem
+            icon={<Images strokeWidth={1.5} size={22} className="text-white" />}
+            text="Banner"
+            to="/banner"
+            active={location.pathname === "/banner"}
+          />
+        </nav>
+
+        {/* Company Pages Section */}
+        <div className="mb-8">
+          <div className="text-[#1A3C70] text-sm font-medium ml-3 mb-3">
+            COMPANY PAGES
+          </div>
+          <nav className="flex flex-col space-y-2">
+            <SidebarItem
+              icon={
+                <Shield strokeWidth={1.5} size={22} className="text-white" />
+              }
+              text="Company Profile"
+              to="/profile"
+              active={location.pathname === "/profile"}
+            />
+            <SidebarItem
+              icon={
+                <Wallet strokeWidth={1.5} size={22} className="text-white" />
+              }
+              text="Bank Details"
+              to="/bank"
+              active={location.pathname === "/bank"}
+            />
+          </nav>
+        </div>
+
+        {/* Help Center */}
+        <div className="mb-4">
           <SidebarItem
             icon={
               <HelpCircle strokeWidth={1.5} size={22} className="text-white" />
@@ -136,35 +171,35 @@ const Sidebar = () => {
             to="/help-center"
             active={location.pathname === "/help-center"}
           />
-          {/* Special logout item with onClick handler */}
-          <div onClick={handleLogout} className="no-underline">
-            <div
-              className={`flex relative items-center gap-3 p-3 w-64 rounded-xl cursor-pointer transition-all 
-              text-slate-700 hover:bg-slate-100 mt-3`}
+        </div>
+      </div>
+
+      {/* Logout button (fixed at bottom) */}
+      <div className="p-4 border-t border-gray-100">
+        <div onClick={handleLogout} className="no-underline">
+          <div className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all text-slate-700 hover:bg-slate-100">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="bg-gradient-to-r from-[#156AEF] to-[#32B4DB] p-2 rounded-md w-9 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="bg-gradient-to-r from-[#156AEF] to-[#32B4DB] p-2 rounded-md w-[38px] text-white"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                />
-              </svg>
-              <span className="font-medium">Log Out</span>
-            </div>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+              />
+            </svg>
+            <span className="font-medium">Log Out</span>
           </div>
         </div>
-      </nav>
+      </div>
 
       {/* Add ToastContainer for notifications */}
       <ToastContainer />
-    </div>
+    </aside>
   );
 };
 
@@ -172,15 +207,15 @@ const SidebarItem = ({ icon, text, to, active }) => {
   return (
     <Link to={to} className="no-underline">
       <div
-        className={`flex relative items-center gap-3 p-3 w-64 rounded-xl cursor-pointer transition-all
+        className={`flex relative items-center gap-3 p-3 w-52 rounded-lg cursor-pointer transition-all
             ${
               active
-                ? "bg-white text-[#1A3C70] font-bold rounded-md shadow-lg shadow-[rgba(21,106,239,0.2)]" // Regular shadow
+                ? "bg-white text-[#1A3C70] font-bold shadow-lg shadow-[rgba(21,106,239,0.2)]"
                 : "text-[#737272] hover:bg-slate-100"
             }`}
       >
         <div
-          className={`flex justify-center items-center absolute right-0 top-0 h-full w-1  rounded-r-lg ${
+          className={`flex justify-center items-center absolute right-0 top-0 h-full w-1 rounded-r-xl ${
             active ? "bg-gradient-to-r from-[#156AEF] to-[#32B4DB]" : ""
           }`}
         ></div>
@@ -188,7 +223,7 @@ const SidebarItem = ({ icon, text, to, active }) => {
         <div className="flex items-center justify-center bg-gradient-to-r from-[#156AEF] to-[#32B4DB] p-2 rounded-md">
           {icon}
         </div>
-        <span>{text}</span>
+        <span className="truncate">{text}</span>
       </div>
     </Link>
   );
