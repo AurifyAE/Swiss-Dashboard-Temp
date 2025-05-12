@@ -377,6 +377,7 @@ const TransactionRow = ({
   expanded,
   onToggleExpand,
   dashboard = false,
+  onUpdate, // New prop to handle updates
 }) => {
   const {
     orderId,
@@ -417,7 +418,8 @@ const TransactionRow = ({
       }
 
       const toastId = toast.loading("Updating status...");
-      setSelectedStatus(newStatus);
+      const previousStatus = selectedStatus;
+      setSelectedStatus(newStatus); // Optimistic update
       setShowDropdown(false);
 
       try {
@@ -425,13 +427,18 @@ const TransactionRow = ({
           itemStatus: newStatus,
         });
         toast.success("Status updated successfully", { id: toastId });
+        // Call onUpdate with updated transaction data
+        onUpdate({
+          ...transaction,
+          status: newStatus,
+        });
       } catch (error) {
         console.error("Error updating status:", error);
-        setSelectedStatus(status);
+        setSelectedStatus(previousStatus); // Revert on error
         toast.error("Failed to update status", { id: toastId });
       }
     },
-    [orderId, status]
+    [orderId, transaction, selectedStatus, onUpdate]
   );
 
   const handleRemarkSubmit = useCallback(async () => {
@@ -441,6 +448,9 @@ const TransactionRow = ({
     }
 
     const toastId = toast.loading("Submitting remark...");
+    const previousStatus = selectedStatus;
+    setSelectedStatus("Rejected"); // Optimistic update
+
     try {
       if (modal.data.product && modal.data.product.itemId) {
         // Reject a specific item
@@ -448,22 +458,43 @@ const TransactionRow = ({
           `/orders/${modal.data.orderId}/items/${modal.data.product.itemId}/reject`
         );
         toast.success("Item rejected", { id: toastId });
+        // Update product status in transaction
+        const updatedProducts = products.map((p) =>
+          p.itemId === modal.data.product.itemId
+            ? { ...p, status: "Rejected" }
+            : p
+        );
+        onUpdate({
+          ...transaction,
+          products: updatedProducts,
+        });
+      } else {
+        // Reject the entire order
+        await axiosInstance.put(`/update-order-reject/${modal.data.orderId}`, {
+          orderStatus: "Rejected",
+          remark,
+        });
+        toast.success("Order rejected", { id: toastId });
+        onUpdate({
+          ...transaction,
+          status: "Rejected",
+        });
       }
 
-      setSelectedStatus("Rejected");
       setModal({ type: null, data: null });
       setRemark("");
       setError("");
     } catch (error) {
       console.error("Error submitting remark:", error);
+      setSelectedStatus(previousStatus); // Revert on error
       toast.error("Failed to submit remark", { id: toastId });
       setError("Failed to submit remark");
     }
-  }, [modal.data, remark]);
+  }, [modal.data, remark, transaction, products, selectedStatus, onUpdate]);
 
   const handleApproval = useCallback(
     async (product) => {
-      if (product.quantity > 1) {
+      if (product.quantity >= 1) {
         setModal({ type: "quantity", data: { orderId, product } });
         setQuantity(product.quantity);
         return;
@@ -478,13 +509,21 @@ const TransactionRow = ({
           quantity: product.quantity,
         });
         toast.success("Order approved", { id: toastId });
+        // Update product status in transaction
+        const updatedProducts = products.map((p) =>
+          p.itemId === product.itemId ? { ...p, status: "Approved" } : p
+        );
+        onUpdate({
+          ...transaction,
+          products: updatedProducts,
+        });
       } catch (error) {
         console.error("Error approving order:", error);
         toast.error("Failed to approve order", { id: toastId });
         setError("Failed to approve order");
       }
     },
-    [orderId]
+    [orderId, transaction, products, onUpdate]
   );
 
   const handleProductRejection = useCallback(
@@ -499,19 +538,29 @@ const TransactionRow = ({
     const toastId = toast.loading("Updating quantity...");
     try {
       await axiosInstance.put(`/update-order-quantity/${orderId}`, {
-        itemStatus: "UserApprovalPending",
+        itemStatus: "User Approval Pending",
         itemId: product.itemId,
         fixedPrice: product.amount,
         quantity,
       });
-      setModal({ type: null, data: null });
       toast.success("Quantity updated", { id: toastId });
+      // Update product quantity and status in transaction
+      const updatedProducts = products.map((p) =>
+        p.itemId === product.itemId
+          ? { ...p, quantity, status: "User Approval Pending" }
+          : p
+      );
+      onUpdate({
+        ...transaction,
+        products: updatedProducts,
+      });
+      setModal({ type: null, data: null });
     } catch (error) {
       console.error("Error updating quantity:", error);
       toast.error("Failed to update quantity", { id: toastId });
       setError("Failed to update quantity");
     }
-  }, [modal.data, quantity]);
+  }, [modal.data, quantity, transaction, products, onUpdate]);
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -891,7 +940,7 @@ const PaginationControls = ({
   );
 };
 
-// Main Transaction Table Component
+// Main Component
 const TransactionTable = ({
   timeFilter = "This Week",
   statusFilter = null,
@@ -924,8 +973,6 @@ const TransactionTable = ({
     try {
       const response = await axiosInstance.get(`/booking/${adminId}`);
       const newOrders = response.data.orderDetails;
-
-      // console.log("Raw orders from API:", newOrders); // Debug log
 
       const transformedOrders = newOrders.map((order) => {
         const customerData = {
@@ -1001,17 +1048,7 @@ const TransactionTable = ({
         };
       });
 
-      // console.log(
-      //   "Transformed orders with timestamps:",
-      //   transformedOrders.map((o) => ({
-      //     id: o.id,
-      //     date: o.date,
-      //     timestamp: o.timestamp,
-      //   }))
-      // );
-
       // Sort orders in LIFO (Last In, First Out) order using timestamps
-      // Higher timestamp = newer order = should come first
       const sortedOrders = transformedOrders.sort(
         (a, b) => b.timestamp - a.timestamp
       );
@@ -1030,6 +1067,17 @@ const TransactionTable = ({
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
+
+  // Handle transaction updates
+  const handleTransactionUpdate = useCallback((updatedTransaction) => {
+    setOrders((prevOrders) =>
+      prevOrders.map((order) =>
+        order.orderId === updatedTransaction.orderId
+          ? { ...order, ...updatedTransaction }
+          : order
+      )
+    );
+  }, []);
 
   const filteredTransactions = useMemo(() => {
     return orders.filter((transaction) => {
@@ -1084,16 +1132,13 @@ const TransactionTable = ({
     });
   }, [orders, timeFilter, statusFilter, searchQuery]);
 
-  // We'll maintain the sort functionality but ensure default is LIFO
   const sortedTransactions = useMemo(() => {
-    // If the sort key is 'date', use the rawDate property for accurate date sorting
     if (sortConfig.key === "date") {
       return [...filteredTransactions].sort((a, b) => {
         const direction = sortConfig.direction === "asc" ? 1 : -1;
-        return direction * (a.rawDate - b.rawDate);
+        return direction * (a.timestamp - b.timestamp);
       });
     }
-    // Otherwise, apply the requested sort to other fields
     return [...filteredTransactions].sort((a, b) => {
       const aValue = a[sortConfig.key];
       const bValue = b[sortConfig.key];
@@ -1187,6 +1232,7 @@ const TransactionTable = ({
               )
             }
             dashboard={dashboard}
+            onUpdate={handleTransactionUpdate}
           />
         ))
       ) : (
