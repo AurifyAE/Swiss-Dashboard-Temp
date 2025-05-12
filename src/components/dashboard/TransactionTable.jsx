@@ -422,7 +422,7 @@ const TransactionRow = ({
 
       try {
         await axiosInstance.put(`/update-order/${orderId}`, {
-          orderStatus: newStatus,
+          itemStatus: newStatus,
         });
         toast.success("Status updated successfully", { id: toastId });
       } catch (error) {
