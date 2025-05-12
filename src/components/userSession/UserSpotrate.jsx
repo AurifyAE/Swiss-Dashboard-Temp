@@ -349,6 +349,7 @@ export default function ProductManagement() {
     return currentProducts.filter((product) => product.stock === true).length;
   }, [state.tabValue, state.filteredProducts, state.filteredAssignedProducts]);
 
+  // Live Price Calculation
   const priceCalculation = useCallback(
     (product) => {
       if (!product || !marketData?.bid || !product.purity || !product.weight)
@@ -373,8 +374,6 @@ export default function ProductManagement() {
             : product.premiumDiscountValue;
       }
 
-      console.log(product);
-
       const pricePerGram = adjustedBid / troyOunceToGram;
       const finalPrice =
         pricePerGram *
@@ -382,6 +381,19 @@ export default function ProductManagement() {
           calculatePurityPower(product.purity) *
           conversionFactor +
         (product.markingChargeValue || 0);
+
+      // console.log("..........................................................");
+      // console.log("Asking Price : ", biddingPrice);
+      // console.log("Premium/Discount : ", product.premiumDiscountValue);
+      // console.log("Asking Price with Premium/Discount : ", adjustedBid);
+      // console.log("1 Gram USD : ", adjustedBid / troyOunceToGram);
+      // console.log("1 Gram AED : ", pricePerGram * 3.674);
+      // console.log("Weight : ", product.weight);
+      // console.log("Purity : ", calculatePurityPower(product.purity));
+      // console.log("Price With Weight and purity : ", finalPrice);
+      // console.log("Making Charge : ", product.makingChargeValue);
+      // console.log("Price With Making Charge : ",(finalPrice + product.makingChargeValue));
+      // console.log("..........................................................");
 
       return finalPrice.toFixed(0);
     },

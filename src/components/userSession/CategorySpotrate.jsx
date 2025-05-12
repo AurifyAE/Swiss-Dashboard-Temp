@@ -41,6 +41,7 @@ import { styled } from "@mui/material/styles";
 import axiosInstance from "../../axios/axios";
 import useMarketData from "../../components/MarketData";
 import debounce from "lodash/debounce";
+import { spread } from "lodash";
 
 // Styled Components
 const StyledTableHead = styled(TableHead)(({ theme }) => ({
@@ -354,6 +355,7 @@ export default function ProductManagement() {
     return purityInput / Math.pow(10, purityInput.toString().length);
   }, []);
 
+  // Live Price Calculation
   const priceCalculation = useCallback(
     (product) => {
       if (!product || !marketData?.bid || !product.purity || !product.weight)
@@ -361,16 +363,18 @@ export default function ProductManagement() {
 
       const troyOunceToGram = 31.103;
       const conversionFactor = 3.674;
-      let biddingPrice =
+
+      const biddingPrice =
         marketData.bid +
         (state.spotRates.goldBidSpread || 0) +
         (state.spotRates.goldAskSpread || 0) +
         0.5;
+
       let adjustedBid = biddingPrice;
 
-      // Only apply premium/discount if not on tab 0
+      // Apply premium/discount only if tabValue !== 0
       if (
-        state.tabValue !== 0 &&
+        state.tabValue === 1 &&
         product.premiumDiscountValue !== undefined &&
         product.premiumDiscountValue !== null
       ) {
@@ -380,19 +384,49 @@ export default function ProductManagement() {
             : product.premiumDiscountValue;
       }
 
-      const pricePerGram = adjustedBid / troyOunceToGram;
+      const pricePerGramWithAdjustment = adjustedBid / troyOunceToGram;
+      const pricePerGramWithoutAdjustment = biddingPrice / troyOunceToGram;
 
-      // Calculate the base price
-      let finalPrice =
-        pricePerGram *
+      const purityPower = calculatePurityPower(product.purity);
+
+      // Base price (as per tab 0: no premium/discount, no making charge)
+      const basePrice =
+        pricePerGramWithoutAdjustment *
         product.weight *
-        calculatePurityPower(product.purity) *
+        purityPower *
         conversionFactor;
 
-      // Only add making charge if not on tab 0
-      if (state.tabValue !== 0 && product.makingChargeValue) {
+      // Final price (with premium/discount and making charge if applicable)
+      let finalPrice =
+        pricePerGramWithAdjustment *
+        product.weight *
+        purityPower *
+        conversionFactor;
+
+      if (state.tabValue === 1 && product.makingChargeValue) {
         finalPrice += product.makingChargeValue;
       }
+
+      // Logging differences
+      // console.log("..........................................................");
+      // console.log("TAB VALUE: ", state.tabValue);
+      // console.log("Asking Price (Raw): ", biddingPrice);
+      // console.log("Premium/Discount Value: ", product.premiumDiscountValue);
+      // console.log("Adjusted Asking Price: ", adjustedBid);
+      // console.log(
+      //   "1 Gram USD (No Adjustment): ",
+      //   biddingPrice / troyOunceToGram
+      // );
+      // console.log(
+      //   "1 Gram USD (With Adjustment): ",
+      //   adjustedBid / troyOunceToGram
+      // );
+      // console.log("Weight: ", product.weight);
+      // console.log("Purity Factor: ", purityPower);
+      // console.log("Base Price (Tab 0, no charges): ", basePrice);
+      // console.log("Making Charge: ", product.makingChargeValue || 0);
+      // console.log("Final Price (With Premium/Discount + MC): ", finalPrice);
+      // console.log("..........................................................");
 
       return finalPrice.toFixed(0);
     },
@@ -779,7 +813,11 @@ export default function ProductManagement() {
           />
 
           {/* Total Stock Count */}
-          <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 3, fontWeight: "600" }}>
+          <Typography
+            variant="subtitle1"
+            color="text.secondary"
+            sx={{ mb: 3, fontWeight: "600" }}
+          >
             Total Products In Stock: <strong>{totalStockCount}</strong>
           </Typography>
         </Box>

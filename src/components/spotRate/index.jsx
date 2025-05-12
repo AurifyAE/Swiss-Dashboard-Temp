@@ -476,7 +476,7 @@ export default function FinancialDataDashboard() {
                   </span>
                   <div className="flex items-center">
                     <span className="text-lg font-semibold">
-                      {formatNumber(data.ask.value)}
+                      {formatNumber(data.ask.value + 0.5)}
                     </span>
                   </div>
                 </div>

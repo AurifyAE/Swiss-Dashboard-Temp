@@ -442,15 +442,18 @@ const TransactionRow = ({
 
     const toastId = toast.loading("Submitting remark...");
     try {
-      await axiosInstance.put(`/update-order-reject/${modal.data.orderId}`, {
-        orderStatus: "Rejected",
-        remark,
-      });
+      if (modal.data.product && modal.data.product.itemId) {
+        // Reject a specific item
+        await axiosInstance.patch(
+          `/orders/${modal.data.orderId}/items/${modal.data.product.itemId}/reject`
+        );
+        toast.success("Item rejected", { id: toastId });
+      }
+
       setSelectedStatus("Rejected");
       setModal({ type: null, data: null });
       setRemark("");
       setError("");
-      toast.success("Order rejected", { id: toastId });
     } catch (error) {
       console.error("Error submitting remark:", error);
       toast.error("Failed to submit remark", { id: toastId });
@@ -618,7 +621,9 @@ const TransactionRow = ({
             </>
           )}
         </div>
-        <div className="hidden lg:block truncate">{totalWeight.toFixed(2)} g</div>
+        <div className="hidden lg:block truncate">
+          {totalWeight.toFixed(2)} g
+        </div>
         <div className="font-semibold hidden md:block">
           AED {typeof amount === "number" ? amount.toLocaleString() : amount}
         </div>
