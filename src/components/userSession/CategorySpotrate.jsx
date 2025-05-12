@@ -459,7 +459,7 @@ export default function ProductManagement() {
 
     try {
       const requestBody = {
-        markingCharge: parseFloat(state.modal.makingChargeValue) || 0,
+        makingCharge: parseFloat(state.modal.makingChargeValue) || 0,
         pricingType:
           state.modal.premiumDiscountType.charAt(0).toUpperCase() +
           state.modal.premiumDiscountType.slice(1),

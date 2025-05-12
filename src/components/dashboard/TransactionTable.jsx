@@ -596,7 +596,7 @@ const TransactionRow = ({
                   {[
                     "Processing",
                     "Approved",
-                    "UserApprovalPending",
+                    "User Approval Pending",
                     "Success",
                     "Rejected",
                   ].map((statusOption) => (
@@ -618,7 +618,7 @@ const TransactionRow = ({
             </>
           )}
         </div>
-        <div className="hidden lg:block truncate">{totalWeight} g</div>
+        <div className="hidden lg:block truncate">{totalWeight.toFixed(2)} g</div>
         <div className="font-semibold hidden md:block">
           AED {typeof amount === "number" ? amount.toLocaleString() : amount}
         </div>
