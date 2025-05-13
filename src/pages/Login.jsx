@@ -11,7 +11,7 @@ import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import IconButton from "@mui/material/IconButton";
 import Switch from "@mui/material/Switch";
 
-const LoginPage = ({ onLoginSuccess })=> {
+const LoginPage = ({ onLoginSuccess }) => {
   const [userName, setUserName] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
@@ -35,15 +35,18 @@ const LoginPage = ({ onLoginSuccess })=> {
         setFcmToken(token);
         setIsTokenLoading(false);
       } catch (error) {
-        console.log(error)
+        console.log(error);
         attempts++;
         if (attempts < maxAttempts) {
           setTimeout(fetchFcmToken, 2000);
         } else {
-          toast.info('Having trouble securing your login. Refreshing the page...', {
-            position: "top-center",
-            autoClose: 3000,
-          });
+          toast.info(
+            "Having trouble securing your login. Refreshing the page...",
+            {
+              position: "top-center",
+              autoClose: 3000,
+            }
+          );
           setTimeout(() => {
             window.location.reload();
           }, 3000);
@@ -79,8 +82,6 @@ const LoginPage = ({ onLoginSuccess })=> {
     checkExistingToken();
   }, [navigate]);
 
-
-
   const validatePassword = (password) => {
     const regex =
       /^(?=.*[a-z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]).{8,}$/;
@@ -108,7 +109,7 @@ const LoginPage = ({ onLoginSuccess })=> {
   const handleLogin = async (e) => {
     e.preventDefault();
     if (isTokenLoading) {
-      toast.warning('Please wait while we secure your login...', {
+      toast.warning("Please wait while we secure your login...", {
         position: "top-right",
         autoClose: 3000,
       });
@@ -135,7 +136,7 @@ const LoginPage = ({ onLoginSuccess })=> {
       if (response.data.success) {
         localStorage.setItem("token", response.data.token);
         localStorage.setItem("userName", userName);
-        localStorage.setItem("adminId",response.data.adminId );
+        localStorage.setItem("adminId", response.data.adminId);
         if (rememberMe) {
           localStorage.setItem("rememberMe", "true");
         } else {
@@ -159,9 +160,8 @@ const LoginPage = ({ onLoginSuccess })=> {
       }
     } catch (err) {
       if (err.response && err.response.status === 500) {
-        navigate('/500'); // Redirect to 500 page
-      }
-      else if (err.response?.data?.message) {
+        navigate("/500"); // Redirect to 500 page
+      } else if (err.response?.data?.message) {
         setPasswordError(err.response.data.message);
       } else {
         setPasswordError("Login failed. Please try again.");
@@ -182,7 +182,7 @@ const LoginPage = ({ onLoginSuccess })=> {
       style={{
         display: "flex",
         height: "100vh",
-        width:"100%",
+        width: "100%",
         backgroundColor: "white",
         overflow: "hidden",
       }}
@@ -193,7 +193,6 @@ const LoginPage = ({ onLoginSuccess })=> {
           width: "50%",
           display: "flex",
           alignItems: "center",
-        
         }}
       >
         <div style={{ width: "100%", maxWidth: "20rem" }}>
@@ -363,22 +362,19 @@ const LoginPage = ({ onLoginSuccess })=> {
           overflow: "hidden",
         }}
       >
-        <div
+        <img
+          src={loginImage}
+          alt="Login Visual"
           style={{
             position: "absolute",
-            top: "0",
-            height: "110%",
+            top: 0,
+            left: 0,
             width: "100%",
-            right:"50px",
-            left: "auto",
-            transform: "skewX(-10deg)",
-            overflow: "hidden",
+            height: "100%",
+            objectFit: "contain",
             borderBottomLeftRadius: "1rem",
-            backgroundImage: `url(${loginImage})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
           }}
-        ></div>
+        />
       </div>
     </div>
   );
