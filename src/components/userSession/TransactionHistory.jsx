@@ -31,7 +31,7 @@ const TransactionHistory = ({ userId }) => {
           throw new Error("User ID is missing");
         }
 
-        const response = await axios.get(`/fetch-transtion/${userId}`);
+        const response = await axios.get(`/fetch-transaction/${userId}`);
         console.log(response)
 
         if (!response.data.success) {
