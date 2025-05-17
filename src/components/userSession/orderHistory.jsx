@@ -60,14 +60,23 @@ const OrderManagement = ({ userId }) => {
   const [error, setError] = useState("");
   const [deleteOrderId, setDeleteOrderId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Admin ID from localStorage
-  const adminId = localStorage.getItem("adminId") || "67c1a8978399ea3181f5cad9";
+  const adminId = localStorage.getItem("adminId");
 
   // Fetch Orders Callback
   const fetchOrders = useCallback(async () => {
-    setIsLoading(true);
-    const loadingToastId = toast.loading("Fetching orders...");
+    // Only show loading state on initial load, not on refreshes
+    if (!isRefreshing) {
+      setIsLoading(true);
+    }
+    
+    // Only show toast on manual refresh, not on initial load or automatic refreshes
+    let loadingToastId;
+    if (isRefreshing) {
+      loadingToastId = toast.loading("Refreshing orders...");
+    }
 
     try {
       const response = await axios.get(`/fetch-order/${adminId}/${userId}`);
@@ -77,13 +86,19 @@ const OrderManagement = ({ userId }) => {
         const hasChanges =
           JSON.stringify(prevOrders) !== JSON.stringify(newOrders);
 
-        if (hasChanges && prevOrders.length > 0) {
-          toast.success("Orders updated!", {
-            id: loadingToastId,
-            duration: 3000,
-          });
-        } else {
-          // toast.dismiss(loadingToastId);
+        // Only show toast notifications when manually refreshing
+        if (isRefreshing) {
+          if (hasChanges) {
+            toast.success("Orders updated!", {
+              id: loadingToastId,
+              duration: 3000,
+            });
+          } else {
+            toast.success("Already up to date", {
+              id: loadingToastId,
+              duration: 2000,
+            });
+          }
         }
 
         return newOrders;
@@ -92,17 +107,32 @@ const OrderManagement = ({ userId }) => {
       setError("");
     } catch (error) {
       console.error("Error fetching orders:", error);
-      toast.error("Failed to load orders", { id: loadingToastId });
+      
+      // Only show error toast when manually refreshing
+      if (isRefreshing && loadingToastId) {
+        toast.error("Failed to load orders", { id: loadingToastId });
+      }
+      
       setError(error.response?.data?.message || "Failed to load orders");
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
-  }, [adminId, userId]);
+  }, [adminId, userId, isRefreshing]);
+
+  // Manual refresh handler
+  const handleManualRefresh = () => {
+    setIsRefreshing(true);
+    fetchOrders();
+  };
 
   // Initial and Periodic Order Fetching
   useEffect(() => {
     fetchOrders();
-    const intervalId = setInterval(fetchOrders, 30000);
+    const intervalId = setInterval(() => {
+      // Don't show notifications on automatic refreshes
+      fetchOrders();
+    }, 30000);
     return () => clearInterval(intervalId);
   }, [fetchOrders]);
 
@@ -212,7 +242,7 @@ const OrderManagement = ({ userId }) => {
         <Button
           variant="outlined"
           color="error"
-          onClick={fetchOrders}
+          onClick={handleManualRefresh}
           startIcon={<RefreshOutlined />}
         >
           Retry
@@ -238,167 +268,197 @@ const OrderManagement = ({ userId }) => {
       ) : orders.length === 0 ? (
         renderNoOrders()
       ) : (
-        // Existing Orders Table Rendering (Previous Implementation)
-        <TableContainer component={Paper} elevation={3}>
-          <Table>
-            <TableHead>
-              <TableRow
-                sx={{
-                  background: "linear-gradient(to right, #32B4DB, #156AEF)",
-                }}
-              >
-                <TableCell></TableCell>
-                <TableCell sx={{ color: "#FFFFFF" }}>Transaction ID</TableCell>
-                <TableCell sx={{ color: "#FFFFFF" }}>Delivery Date</TableCell>
-                <TableCell sx={{ color: "#FFFFFF" }}>Payment Method</TableCell>
-                <TableCell sx={{ color: "#FFFFFF" }}>Status</TableCell>
-                <TableCell sx={{ color: "#FFFFFF" }}>Total Amount </TableCell>
-                <TableCell sx={{ color: "#FFFFFF" }}>Total Weight </TableCell>
-                <TableCell sx={{ color: "#FFFFFF" }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {(rowsPerPage > 0
-                ? orders.slice(
-                    page * rowsPerPage,
-                    page * rowsPerPage + rowsPerPage
-                  )
-                : orders
-              ).map((order) => (
-                <React.Fragment key={order._id}>
-                  <TableRow hover>
-                    <TableCell>
-                      <IconButton
-                        size="small"
-                        onClick={() => toggleOrderExpansion(order._id)}
-                      >
-                        {expandedOrders[order._id] ? (
-                          <KeyboardArrowDown />
-                        ) : (
-                          <KeyboardArrowRight />
-                        )}
-                      </IconButton>
-                    </TableCell>
-                    <TableCell>{order.transactionId}</TableCell>
-                    <TableCell>{formatDate(order.orderDate)}</TableCell>
-                    <TableCell>{order.paymentMethod}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={order.orderStatus}
-                        color={getStatusColor(order.orderStatus)}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>{order.totalPrice || "Nil"}</TableCell>
-                    <TableCell>{order.totalWeight || "Nil"}</TableCell>
-                    <TableCell>
-                      <Box sx={{ display: "flex", gap: 1 }}>
-                        <IconButton
-                          onClick={() => openDeleteConfirmation(order._id)}
-                          size="small"
-                          color="error"
-                        >
-                          <DeleteOutline fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell
-                      colSpan={8}
-                      sx={{
-                        paddingBottom: 0,
-                        paddingTop: 0,
-                      }}
-                    >
-                      <Collapse
-                        in={expandedOrders[order._id]}
-                        timeout="auto"
-                        unmountOnExit
-                      >
-                        <Box sx={{ margin: 2 }}>
-                          {order.items && order.items.length > 0 ? (
-                            <Table size="small">
-                              <TableHead>
-                                <TableRow>
-                                  <TableCell>Product Image</TableCell>
-                                  <TableCell>Name</TableCell>
-                                  <TableCell>Weight</TableCell>
-                                  <TableCell>Purity</TableCell>
-                                  <TableCell>Status</TableCell>
-                                  <TableCell>Quantity</TableCell>
-                                  <TableCell>Amount</TableCell>
-                                </TableRow>
-                              </TableHead>
-                              <TableBody>
-                                {order.items.map((item) => (
-                                  <TableRow key={item._id}>
-                                    <TableCell>
-                                      <Avatar
-                                        variant="rounded"
-                                        alt={item.product.title}
-                                        src={item.product.images[0].url}
-                                        sx={{
-                                          width: 60,
-                                          height: 60,
-                                          borderRadius: "10px",
-                                          border: "none",
-                                          boxShadow: "none",
-                                        }}
-                                      />
-                                    </TableCell>
-                                    <TableCell>{item.product?.title}</TableCell>
-                                    <TableCell>
-                                      {item.product?.weight}g
-                                    </TableCell>
-                                    <TableCell>
-                                      {item.product?.purity}
-                                    </TableCell>
-                                    <TableCell>
-                                      <Chip
-                                        label={item.itemStatus}
-                                        color={getStatusColor(item.itemStatus)}
-                                        size="small"
-                                      />
-                                    </TableCell>
-                                    <TableCell>{item.quantity}</TableCell>
-                                    <TableCell>{item.product.price}</TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          ) : (
-                            <Typography
-                              variant="body2"
-                              color="text.secondary"
-                              align="center"
-                            >
-                              No items in this order
-                            </Typography>
-                          )}
-                        </Box>
-                      </Collapse>
-                    </TableCell>
-                  </TableRow>
-                </React.Fragment>
-              ))}
-            </TableBody>
-          </Table>
+        <>
+          {/* Refresh icon button */}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+            <IconButton
+              color="primary"
+              onClick={handleManualRefresh}
+              disabled={isRefreshing}
+              size="medium"
+              sx={{ 
+                bgcolor: 'rgba(21, 106, 239, 0.08)', 
+                '&:hover': { 
+                  bgcolor: 'rgba(21, 106, 239, 0.15)' 
+                },
+                '@keyframes spin': {
+                  '0%': {
+                    transform: 'rotate(0deg)',
+                  },
+                  '100%': {
+                    transform: 'rotate(360deg)',
+                  },
+                },
+              }}
+            >
+              <RefreshOutlined sx={{ 
+                animation: isRefreshing ? 'spin 1s linear infinite' : 'none'
+              }} />
+            </IconButton>
+          </Box>
 
-          <TablePagination
-            rowsPerPageOptions={[5, 10, 25, { label: "All", value: -1 }]}
-            component="div"
-            count={orders.length}
-            rowsPerPage={rowsPerPage}
-            page={page}
-            onPageChange={(_, newPage) => setPage(newPage)}
-            onRowsPerPageChange={(e) => {
-              setRowsPerPage(parseInt(e.target.value, 10));
-              setPage(0);
-            }}
-            sx={{backgroundColor: "#F3F4F6"}}
-          />
-        </TableContainer>
+          {/* Orders Table */}
+          <TableContainer component={Paper} elevation={3}>
+            <Table>
+              <TableHead>
+                <TableRow
+                  sx={{
+                    background: "linear-gradient(to right, #32B4DB, #156AEF)",
+                  }}
+                >
+                  <TableCell></TableCell>
+                  <TableCell sx={{ color: "#FFFFFF" }}>Transaction ID</TableCell>
+                  <TableCell sx={{ color: "#FFFFFF" }}>Delivery Date</TableCell>
+                  <TableCell sx={{ color: "#FFFFFF" }}>Payment Method</TableCell>
+                  <TableCell sx={{ color: "#FFFFFF" }}>Status</TableCell>
+                  <TableCell sx={{ color: "#FFFFFF" }}>Total Amount </TableCell>
+                  <TableCell sx={{ color: "#FFFFFF" }}>Total Weight </TableCell>
+                  <TableCell sx={{ color: "#FFFFFF" }}>Actions</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {(rowsPerPage > 0
+                  ? orders.slice(
+                      page * rowsPerPage,
+                      page * rowsPerPage + rowsPerPage
+                    )
+                  : orders
+                ).map((order) => (
+                  <React.Fragment key={order._id}>
+                    <TableRow hover>
+                      <TableCell>
+                        <IconButton
+                          size="small"
+                          onClick={() => toggleOrderExpansion(order._id)}
+                        >
+                          {expandedOrders[order._id] ? (
+                            <KeyboardArrowDown />
+                          ) : (
+                            <KeyboardArrowRight />
+                          )}
+                        </IconButton>
+                      </TableCell>
+                      <TableCell>{order.transactionId}</TableCell>
+                      <TableCell>{formatDate(order.orderDate)}</TableCell>
+                      <TableCell>{order.paymentMethod}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={order.orderStatus}
+                          color={getStatusColor(order.orderStatus)}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell>{order.totalPrice || "Nil"}</TableCell>
+                      <TableCell>{order.totalWeight || "Nil"}</TableCell>
+                      <TableCell>
+                        <Box sx={{ display: "flex", gap: 1 }}>
+                          <IconButton
+                            onClick={() => openDeleteConfirmation(order._id)}
+                            size="small"
+                            color="error"
+                          >
+                            <DeleteOutline fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell
+                        colSpan={8}
+                        sx={{
+                          paddingBottom: 0,
+                          paddingTop: 0,
+                        }}
+                      >
+                        <Collapse
+                          in={expandedOrders[order._id]}
+                          timeout="auto"
+                          unmountOnExit
+                        >
+                          <Box sx={{ margin: 2 }}>
+                            {order.items && order.items.length > 0 ? (
+                              <Table size="small">
+                                <TableHead>
+                                  <TableRow>
+                                    <TableCell>Product Image</TableCell>
+                                    <TableCell>Name</TableCell>
+                                    <TableCell>Weight</TableCell>
+                                    <TableCell>Purity</TableCell>
+                                    <TableCell>Status</TableCell>
+                                    <TableCell>Quantity</TableCell>
+                                    <TableCell>Amount</TableCell>
+                                  </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                  {order.items.map((item) => (
+                                    <TableRow key={item._id}>
+                                      <TableCell>
+                                        <Avatar
+                                          variant="rounded"
+                                          alt={item.product.title}
+                                          src={item.product.images[0].url}
+                                          sx={{
+                                            width: 60,
+                                            height: 60,
+                                            borderRadius: "10px",
+                                            border: "none",
+                                            boxShadow: "none",
+                                          }}
+                                        />
+                                      </TableCell>
+                                      <TableCell>{item.product?.title}</TableCell>
+                                      <TableCell>
+                                        {item.product?.weight}g
+                                      </TableCell>
+                                      <TableCell>
+                                        {item.product?.purity}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Chip
+                                          label={item.itemStatus}
+                                          color={getStatusColor(item.itemStatus)}
+                                          size="small"
+                                        />
+                                      </TableCell>
+                                      <TableCell>{item.quantity}</TableCell>
+                                      <TableCell>{item.product.price}</TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            ) : (
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                                align="center"
+                              >
+                                No items in this order
+                              </Typography>
+                            )}
+                          </Box>
+                        </Collapse>
+                      </TableCell>
+                    </TableRow>
+                  </React.Fragment>
+                ))}
+              </TableBody>
+            </Table>
+
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25, { label: "All", value: -1 }]}
+              component="div"
+              count={orders.length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={(_, newPage) => setPage(newPage)}
+              onRowsPerPageChange={(e) => {
+                setRowsPerPage(parseInt(e.target.value, 10));
+                setPage(0);
+              }}
+              sx={{backgroundColor: "#F3F4F6"}}
+            />
+          </TableContainer>
+        </>
       )}
 
       {/* Delete Confirmation Dialog */}

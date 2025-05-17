@@ -92,7 +92,7 @@ const TransactionHistory = ({ userId }) => {
     return (
       <div className="flex justify-center items-center py-10 bg-red-50">
         <div className="text-red-600">
-          Error: {error}
+          No Transactions Found for this User
           <button
             onClick={() => window.location.reload()}
             className="ml-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
@@ -263,9 +263,6 @@ const TransactionHistory = ({ userId }) => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Balance After
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Order ID
-              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -309,9 +306,6 @@ const TransactionHistory = ({ userId }) => {
                     {transaction.balanceType === "GOLD"
                       ? `${transaction.balanceAfter.toFixed(3)} gm`
                       : transaction.balanceAfter.toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {transaction.orderId?._id || "N/A"}
                   </td>
                 </tr>
               ))
