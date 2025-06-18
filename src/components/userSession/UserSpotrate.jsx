@@ -350,55 +350,90 @@ export default function ProductManagement() {
   }, [state.tabValue, state.filteredProducts, state.filteredAssignedProducts]);
 
   // Live Price Calculation
-  const priceCalculation = useCallback(
-    (product) => {
-      if (!product || !marketData?.bid || !product.purity || !product.weight)
-        return 0;
+const priceCalculation = useCallback(
+  (product) => {
+    // Early return if required data is missing
+    if (!product || !marketData?.bid || !product.purity || !product.weight) {
+      return 0;
+    }
 
-      const troyOunceToGram = 31.103;
-      const conversionFactor = 3.674;
-      let biddingPrice =
-        marketData.bid +
-        (state.spotRates.goldBidSpread || 0) +
-        (state.spotRates.goldAskSpread || 0) +
-        0.5;
-      let adjustedBid = biddingPrice;
+    const troyOunceToGram = 31.103;
+    const conversionFactor = 3.674; // USD to AED conversion
+    
+    // Calculate base bidding price with spreads
+    let biddingPrice =
+      marketData.bid +
+      (state.spotRates.goldBidSpread || 0) +
+      (state.spotRates.goldAskSpread || 0) +
+      0.5;
+    
+    let adjustedBid = biddingPrice;
 
-      if (
-        product.premiumDiscountValue !== undefined &&
-        product.premiumDiscountValue !== null
-      ) {
-        adjustedBid +=
-          product.premiumDiscountType === "discount"
-            ? -Math.abs(product.premiumDiscountValue)
-            : product.premiumDiscountValue;
-      }
+    // Apply premium/discount if available
+    if (
+      product.premiumDiscountValue !== undefined &&
+      product.premiumDiscountValue !== null
+    ) {
+      adjustedBid +=
+        product.premiumDiscountType === "discount"
+          ? -Math.abs(product.premiumDiscountValue)
+          : product.premiumDiscountValue;
+    }
 
-      const pricePerGram = adjustedBid / troyOunceToGram;
-      const finalPrice =
-        pricePerGram *
-          product.weight *
-          calculatePurityPower(product.purity) *
-          conversionFactor +
-        (product.markingChargeValue || 0);
+    // Calculate purity factor (convert percentage to decimal)
+    const purityFactor = calculatePurityFactor(product.purity);
+    
+    // Convert price per troy ounce to price per gram
+    const pricePerGram = adjustedBid / troyOunceToGram;
+    
+    // Convert to AED
+    const pricePerGramAED = pricePerGram * conversionFactor;
+    
+    // Calculate final price with weight and purity
+    const basePrice = pricePerGramAED * product.weight * purityFactor;
+    
+    // Add making/marking charges
+    const finalPrice = basePrice + (product.markingChargeValue || 0);
 
-      // console.log("..........................................................");
-      // console.log("Asking Price : ", biddingPrice);
-      // console.log("Premium/Discount : ", product.premiumDiscountValue);
-      // console.log("Asking Price with Premium/Discount : ", adjustedBid);
-      // console.log("1 Gram USD : ", adjustedBid / troyOunceToGram);
-      // console.log("1 Gram AED : ", pricePerGram * 3.674);
-      // console.log("Weight : ", product.weight);
-      // console.log("Purity : ", calculatePurityPower(product.purity));
-      // console.log("Price With Weight and purity : ", finalPrice);
-      // console.log("Making Charge : ", product.makingChargeValue);
-      // console.log("Price With Making Charge : ",(finalPrice + product.makingChargeValue));
-      // console.log("..........................................................");
+    // // Debug logging (uncomment for debugging)
+    // console.log("=== Price Calculation Debug ===");
+    // console.log("Market Bid Price: ", marketData.bid);
+    // console.log("Bidding Price (with spreads): ", biddingPrice);
+    // console.log("Premium/Discount: ", product.premiumDiscountValue);
+    // console.log("Adjusted Bid: ", adjustedBid);
+    // console.log("Price per Gram (USD): ", (adjustedBid / troyOunceToGram).toFixed(4));
+    // console.log("Price per Gram (AED): ", pricePerGramAED.toFixed(4));
+    // console.log("Product Weight: ", product.weight);
+    // console.log("Product Purity: ", product.purity);
+    // console.log("Purity Factor: ", purityFactor);
+    // console.log("Base Price (AED): ", basePrice.toFixed(2));
+    // console.log("Making/Marking Charge: ", (product.markingChargeValue || 0));
+    // console.log("Final Price (AED): ", finalPrice.toFixed(2));
+    // console.log("===============================");
 
-      return finalPrice.toFixed(0);
-    },
-    [marketData, state.spotRates, calculatePurityPower]
-  );
+    return Math.round(finalPrice);
+  },
+  [marketData, state.spotRates]
+);
+
+// Helper function to calculate purity factor based on digit count
+const calculatePurityFactor = (purity) => {
+  if (!purity) return 0;
+  
+  // Convert to string to count digits, remove any non-numeric characters
+  const purityStr = purity.toString().replace(/[^\d]/g, '');
+  const numericPurity = parseInt(purityStr, 10);
+  
+  if (numericPurity === 0) return 0;
+  
+  // Calculate the divisor based on number of digits
+  // For 999 (3 digits) -> 10^3 = 1000, so 999/1000 = 0.999
+  // For 9999 (4 digits) -> 10^4 = 10000, so 9999/10000 = 0.9999
+  const digitCount = purityStr.length;
+  const divisor = Math.pow(10, digitCount);
+  
+  return numericPurity / divisor;
+};
 
   // Handlers
   const handleTabChange = useCallback((event, newValue) => {
