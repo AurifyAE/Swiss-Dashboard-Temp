@@ -146,18 +146,18 @@ function ProductModal({
 
           <div className="p-6">
             {/* Image Upload Section */}
-            <div className="mb-8 p-6 bg-gray-50 rounded-xl">
+            <div className="p-6 mb-8 bg-gray-50 rounded-xl">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <span className="text-blue-500">📷</span>
                   <h3 className="text-lg font-semibold">Product Images</h3>
                 </div>
-                <span className="text-sm text-gray-500 bg-white px-3 py-1 rounded-full">
+                <span className="px-3 py-1 text-sm text-gray-500 bg-white rounded-full">
                   {getTotalImageCount()}/{MAX_IMAGES} images
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-4">
+              <div className="grid grid-cols-2 gap-4 mb-4 sm:grid-cols-3 md:grid-cols-5">
                 {existingImages.map((img, index) => (
                   <div
                     key={`existing-${index}`}
@@ -166,13 +166,13 @@ function ProductModal({
                     <img
                       src={img.url}
                       alt={`Existing ${index + 1}`}
-                      className="w-full h-full object-cover rounded-lg border-2 border-gray-200"
+                      className="object-cover w-full h-full border-2 border-gray-200 rounded-lg"
                     />
-                    <div className="absolute inset-0 bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                    <div className="absolute inset-0 flex items-center justify-center transition-opacity bg-black rounded-lg opacity-0 bg-opacity-40 group-hover:opacity-100">
                       <button
                         type="button"
                         onClick={() => removeExistingImage(index)}
-                        className="p-2 bg-red-500 rounded-full text-white transform scale-75 group-hover:scale-100 transition-transform"
+                        className="p-2 text-white transition-transform transform scale-75 bg-red-500 rounded-full group-hover:scale-100"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -188,13 +188,13 @@ function ProductModal({
                     <img
                       src={URL.createObjectURL(file)}
                       alt={`New ${index + 1}`}
-                      className="w-full h-full object-cover rounded-lg border-2 border-blue-200"
+                      className="object-cover w-full h-full border-2 border-blue-200 rounded-lg"
                     />
-                    <div className="absolute inset-0 bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                    <div className="absolute inset-0 flex items-center justify-center transition-opacity bg-black rounded-lg opacity-0 bg-opacity-40 group-hover:opacity-100">
                       <button
                         type="button"
                         onClick={() => removeNewImage(index)}
-                        className="p-2 bg-red-500 rounded-full text-white transform scale-75 group-hover:scale-100 transition-transform"
+                        className="p-2 text-white transition-transform transform scale-75 bg-red-500 rounded-full group-hover:scale-100"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -203,7 +203,7 @@ function ProductModal({
                 ))}
 
                 {getTotalImageCount() < MAX_IMAGES && (
-                  <label className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-colors">
+                  <label className="flex flex-col items-center justify-center transition-colors border-2 border-gray-300 border-dashed rounded-lg cursor-pointer aspect-square hover:border-blue-500 hover:bg-blue-50">
                     <input
                       type="file"
                       accept="image/*"
@@ -211,9 +211,9 @@ function ProductModal({
                       onChange={handleImageUpload}
                       className="hidden"
                     />
-                    <Plus className="w-8 h-8 text-gray-400 mb-2" />
+                    <Plus className="w-8 h-8 mb-2 text-gray-400" />
                     <span className="text-sm text-gray-500">Add Images</span>
-                    <span className="text-xs text-gray-400 mt-1">
+                    <span className="mt-1 text-xs text-gray-400">
                       Max {MAX_IMAGES}
                     </span>
                   </label>
@@ -221,7 +221,7 @@ function ProductModal({
               </div>
 
               {getTotalImageCount() === 0 && (
-                <div className="flex items-center gap-2 text-yellow-600 bg-yellow-50 p-4 rounded-lg">
+                <div className="flex items-center gap-2 p-4 text-yellow-600 rounded-lg bg-yellow-50">
                   <span>⚠️</span>
                   <div>
                     <p className="font-medium">No images uploaded</p>
@@ -234,9 +234,9 @@ function ProductModal({
             </div>
 
             {/* Product Details Form */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block mb-1 text-sm font-medium text-gray-700">
                   Product Title
                 </label>
                 <input
@@ -251,7 +251,7 @@ function ProductModal({
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block mb-1 text-sm font-medium text-gray-700">
                   Description
                 </label>
                 <input
@@ -265,7 +265,7 @@ function ProductModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block mb-1 text-sm font-medium text-gray-700">
                   Price
                 </label>
                 <input
@@ -276,13 +276,11 @@ function ProductModal({
                   placeholder="Enter price"
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
-                  min="0"
-                  step="0.01"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block mb-1 text-sm font-medium text-gray-700">
                   Weight (grams)
                 </label>
                 <input
@@ -293,13 +291,11 @@ function ProductModal({
                   placeholder="Enter weight"
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   required
-                  min="0"
-                  step="0.1"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block mb-1 text-sm font-medium text-gray-700">
                   Purity
                 </label>
                 <select
@@ -321,7 +317,7 @@ function ProductModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block mb-1 text-sm font-medium text-gray-700">
                   SKU
                 </label>
                 <input
@@ -336,7 +332,7 @@ function ProductModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block mb-1 text-sm font-medium text-gray-700">
                   Stock
                 </label>
                 <select
@@ -352,11 +348,11 @@ function ProductModal({
             </div>
           </div>
 
-          <div className="p-6 border-t flex justify-end gap-2">
+          <div className="flex justify-end gap-2 p-6 border-t">
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
-              className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+              className="px-4 py-2 text-gray-700 transition-colors rounded-md hover:bg-gray-100"
             >
               Cancel
             </button>
@@ -761,13 +757,13 @@ export default function ProductManagement() {
                   toast.dismiss(t.id);
                   performDeletion(productId);
                 }}
-                className="bg-red-500 text-white px-3 py-1 rounded-md text-sm hover:bg-red-600"
+                className="px-3 py-1 text-sm text-white bg-red-500 rounded-md hover:bg-red-600"
               >
                 Delete
               </button>
               <button
                 onClick={() => toast.dismiss(t.id)}
-                className="bg-gray-200 text-gray-700 px-3 py-1 rounded-md text-sm hover:bg-gray-300"
+                className="px-3 py-1 text-sm text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
               >
                 Cancel
               </button>
@@ -883,7 +879,7 @@ export default function ProductManagement() {
 
   return (
     <div className="bg-gradient-to-r from-[#E9FAFF] to-[#EEF3F9] p-6 rounded-lg shadow-sm min-h-screen px-16">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex items-center justify-between mb-6">
         <button
           onClick={() => {
             setIsEditMode(false);
@@ -909,20 +905,20 @@ export default function ProductManagement() {
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="overflow-hidden bg-white rounded-lg shadow-md">
         <div className="overflow-x-auto">
           <table className="w-full table-auto">
             <thead>
               <tr className="bg-gradient-to-r from-[#32B4DB] to-[#156AEF] text-white">
-                <th className="py-3 px-4 text-left">Image</th>
-                <th className="py-3 px-4 text-left">Title</th>
-                <th className="py-3 px-4 text-left">Description</th>
-                <th className="py-3 px-4 text-left">Price</th>
-                <th className="py-3 px-4 text-left">Weight (gms)</th>
-                <th className="py-3 px-4 text-left">Purity</th>
-                <th className="py-3 px-4 text-left">SKU</th>
-                <th className="py-3 px-4 text-left">Stock</th>
-                <th className="py-3 px-4 text-left">Actions</th>
+                <th className="px-4 py-3 text-left">Image</th>
+                <th className="px-4 py-3 text-left">Title</th>
+                <th className="px-4 py-3 text-left">Description</th>
+                <th className="px-4 py-3 text-left">Price</th>
+                <th className="px-4 py-3 text-left">Weight (gms)</th>
+                <th className="px-4 py-3 text-left">Purity</th>
+                <th className="px-4 py-3 text-left">SKU</th>
+                <th className="px-4 py-3 text-left">Stock</th>
+                <th className="px-4 py-3 text-left">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -930,7 +926,7 @@ export default function ProductManagement() {
                 <tr>
                   <td colSpan="9" className="py-8 text-center">
                     <div className="flex justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                      <div className="w-8 h-8 border-b-2 border-blue-500 rounded-full animate-spin"></div>
                     </div>
                     <div className="mt-2 text-gray-500">
                       Loading products...
@@ -945,7 +941,7 @@ export default function ProductManagement() {
                       index % 2 === 0 ? "bg-gray-50" : "bg-white"
                     }`}
                   >
-                    <td className="py-3 px-4">
+                    <td className="px-4 py-3">
                       <div className="w-12 h-12 bg-gray-200 rounded">
                         <img
                           src={
@@ -954,22 +950,22 @@ export default function ProductManagement() {
                               : "/placeholder.png"
                           }
                           alt={product.title}
-                          className="w-full h-full object-cover rounded"
+                          className="object-cover w-full h-full rounded"
                         />
                       </div>
                     </td>
-                    <td className="py-3 px-4 font-medium">{product.title}</td>
-                    <td className="py-3 px-4 text-gray-600">
+                    <td className="px-4 py-3 font-medium">{product.title}</td>
+                    <td className="px-4 py-3 text-gray-600">
                       {product.description}
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="px-4 py-3">
                       {/* AED {Number(product.price).toFixed(2)} */}
                       AED {priceCalculation(product)}
                     </td>
-                    <td className="py-3 px-4">{product.weight}</td>
-                    <td className="py-3 px-4">{product.purity}</td>
-                    <td className="py-3 px-4">{product.sku}</td>
-                    <td className="py-3 px-4">
+                    <td className="px-4 py-3">{product.weight}</td>
+                    <td className="px-4 py-3">{product.purity}</td>
+                    <td className="px-4 py-3">{product.sku}</td>
+                    <td className="px-4 py-3">
                       <span
                         className={`px-2 py-1 rounded-full text-xs ${
                           product.stock
@@ -980,7 +976,7 @@ export default function ProductManagement() {
                         {product.stock ? "In Stock" : "Out of Stock"}
                       </span>
                     </td>
-                    <td className="py-3 px-4">
+                    <td className="px-4 py-3">
                       <div className="flex gap-2">
                         <button
                           onClick={() => {
@@ -1016,7 +1012,7 @@ export default function ProductManagement() {
           </table>
         </div>
 
-        <div className="flex justify-between items-center p-4 bg-gray-50 border-t border-gray-200">
+        <div className="flex items-center justify-between p-4 border-t border-gray-200 bg-gray-50">
           <div className="flex items-center space-x-2">
             <span className="text-sm text-gray-600">Rows per page:</span>
             <select
@@ -1025,7 +1021,7 @@ export default function ProductManagement() {
                 setItemsPerPage(Number(e.target.value));
                 setCurrentPage(1);
               }}
-              className="border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+              className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
             >
               <option value={5}>5</option>
               <option value={10}>10</option>
@@ -1044,7 +1040,7 @@ export default function ProductManagement() {
               <button
                 onClick={() => setCurrentPage(1)}
                 disabled={currentPage === 1}
-                className="p-2 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                className="p-2 text-sm rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 First
               </button>
@@ -1067,7 +1063,7 @@ export default function ProductManagement() {
               <button
                 onClick={() => setCurrentPage(totalPages)}
                 disabled={currentPage === totalPages}
-                className="p-2 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                className="p-2 text-sm rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Last
               </button>
