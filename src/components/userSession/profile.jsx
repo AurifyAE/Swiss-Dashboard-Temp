@@ -51,13 +51,13 @@ const ProfilePage = () => {
     []
   );
 
-  // Format balance with sign
+  // Format balance with CR/DR
   const formatBalance = useCallback((balance, type = "cash") => {
-    const sign = balance >= 0 ? "+" : "-";
     const absBalance = Math.abs(balance);
+    const suffix = balance >= 0 ? " CR" : " DR";
     return (
       <span className={`font-bold ${balance >= 0 ? "text-green-600" : "text-red-600"}`}>
-        {sign} {type === "cash" ? absBalance.toLocaleString() : absBalance.toFixed(3)} {type === "gold" ? "gm" : ""}
+        {type === "cash" ? absBalance.toLocaleString() : absBalance.toFixed(3)} {type === "gold" ? "gm" : ""}{suffix}
       </span>
     );
   }, []);
@@ -92,7 +92,7 @@ const ProfilePage = () => {
     }
   }, [userId]);
 
-  // Initial fetch only
+  // Initial fetch
   useEffect(() => {
     fetchUserProfile();
   }, [fetchUserProfile]);
@@ -139,8 +139,8 @@ const ProfilePage = () => {
     try {
       setIsCashLoading(true);
       const cashAmount = parseFloat(cashInput.trim());
-      if (isNaN(cashAmount) || cashAmount <= 0) {
-        toast.error("Please enter a valid positive cash amount");
+      if (isNaN(cashAmount) || cashAmount === 0) {
+        toast.error("Please enter a valid cash amount");
         return;
       }
 
@@ -153,9 +153,9 @@ const ProfilePage = () => {
       const transaction = {
         _id: `temp-${Date.now()}`,
         transactionId: `TXN-${Date.now()}`,
-        type: "CREDIT",
+        type: cashAmount > 0 ? "CREDIT" : "DEBIT",
         method: "RECEIVED",
-        amount: cashAmount,
+        amount: Math.abs(cashAmount),
         balanceType: "CASH",
         balanceAfter: newBalance,
         createdAt: new Date().toISOString(),
@@ -172,15 +172,15 @@ const ProfilePage = () => {
       const newServerBalance = Number(response.data.data.newBalance) || 0;
       setCashBalance(newServerBalance);
       setPendingCashUpdate(0);
-      setPendingTransaction(null); // Clear pending transaction
-      toast.success(`Successfully received ${cashAmount.toLocaleString()}`);
+      setPendingTransaction(null);
+      toast.success(`Successfully ${cashAmount > 0 ? "received" : "debited"} ${Math.abs(cashAmount).toLocaleString()}`);
       setCashInput("");
     } catch (error) {
       console.error("Cash Receive Error:", error);
-      setCashBalance((prev) => prev - pendingCashUpdate); // Revert balance
+      setCashBalance((prev) => prev - pendingCashUpdate);
       setPendingCashUpdate(0);
-      setPendingTransaction(null); // Clear pending transaction
-      toast.error(error.message || "Failed to process cash received");
+      setPendingTransaction(null);
+      toast.error(error.message || "Failed to process cash transaction");
     } finally {
       setIsCashLoading(false);
     }
@@ -196,7 +196,7 @@ const ProfilePage = () => {
       }
 
       const goldAmount = parseFloat(calculatedGoldValue);
-      if (isNaN(goldAmount) || goldAmount <= 0) {
+      if (isNaN(goldAmount) || goldAmount === 0) {
         toast.error("Invalid gold amount. Please check weight and purity.");
         return;
       }
@@ -210,9 +210,9 @@ const ProfilePage = () => {
       const transaction = {
         _id: `temp-${Date.now()}`,
         transactionId: `TXN-${Date.now()}`,
-        type: "CREDIT",
+        type: goldAmount > 0 ? "CREDIT" : "DEBIT",
         method: "RECEIVED",
-        amount: goldAmount,
+        amount: Math.abs(goldAmount),
         balanceType: "GOLD",
         balanceAfter: newBalance,
         createdAt: new Date().toISOString(),
@@ -229,17 +229,17 @@ const ProfilePage = () => {
       const newServerBalance = Number(response.data.data.newBalance) || 0;
       setGoldBalance(newServerBalance);
       setPendingGoldUpdate(0);
-      setPendingTransaction(null); // Clear pending transaction
-      toast.success(`Successfully received ${goldAmount.toFixed(3)} gm of gold`);
+      setPendingTransaction(null);
+      toast.success(`Successfully ${goldAmount > 0 ? "received" : "debited"} ${Math.abs(goldAmount).toFixed(3)} gm of gold`);
       setWeight("");
       setPurity("");
       setCalculatedGoldValue(0);
     } catch (error) {
       console.error("Gold Receive Error:", error);
-      setGoldBalance((prev) => prev - pendingGoldUpdate); // Revert balance
+      setGoldBalance((prev) => prev - pendingGoldUpdate);
       setPendingGoldUpdate(0);
-      setPendingTransaction(null); // Clear pending transaction
-      toast.error(error.message || "Failed to process gold received");
+      setPendingTransaction(null);
+      toast.error(error.message || "Failed to process gold transaction");
     } finally {
       setIsGoldLoading(false);
     }
@@ -331,7 +331,7 @@ const ProfilePage = () => {
                     className="mr-2"
                   >
                     <path
-                      d="M9.00023 2.25C13.0443 2.25 16.4088 5.15982 17.1142  DSC_0012.jpg9C16.4088 12.8401 13.0443 15.75 9.00023 15.75C4.95609 15.75 1.59161 12.8401 0.88623 9C1.59161 5.15982 4.95609 2.25 9.00023 2.25ZM9.00023 14.25C12.1769 14.25 14.8952 12.039 15.5833 9C14.8952 5.96102 12.1769 3.75 9.00023 3.75C5.82345 3.75 3.10517 5.96102 2.41709 9C3.10517 12.039 5.82345 14.25 9.00023 14.25ZM9.00023 12.375C7.13624 12.375 5.6252 10.864 5.6252 9C5.6252 7.13604 7.13624 5.625 9.00023 5.625C10.8641 5.625 12.3752 7.13604 12.3752 9C12.3752 10.864 10.8641 12.375 9.00023 12.375ZM9.00023 10.875C10.0358 10.875 10.8752 10.0355 10.8752 9C10.8752 7.96448 10.0358 7.125 9.00023 7.125C7.9647 7.125 7.1252 7.96448 7.1252 9C7.1252 10.0355 7.9647 10.875 9.00023 10.875Z"
+                      d="M9.00023 2.25C13.0443 2.25 16.4088 5.15982 17.1142 9C16.4088 12.8401 13.0443 15.75 9.00023 15.75C4.95609 15.75 1.59161 12.8401 0.88623 9C1.59161 5.15982 4.95609 2.25 9.00023 2.25ZM9.00023 14.25C12.1769 14.25 14.8952 12.039 15.5833 9C14.8952 5.96102 12.1769 3.75 9.00023 3.75C5.82345 3.75 3.10517 5.96102 2.41709 9C3.10517 12.039 5.82345 14.25 9.00023 14.25ZM9.00023 12.375C7.13624 12.375 5.6252 10.864 5.6252 9C5.6252 7.13604 7.13624 5.625 9.00023 5.625C10.8641 5.625 12.3752 7.13604 12.3752 9C12.3752 10.864 10.8641 12.375 9.00023 12.375ZM9.00023 10.875C10.0358 10.875 10.8752 10.0355 10.8752 9C10.8752 7.96448 10.0358 7.125 9.00023 7.125C7.9647 7.125 7.1252 7.96448 7.1252 9C7.1252 10.0355 7.9647 10.875 9.00023 10.875Z"
                       fill="white"
                     />
                   </svg>
@@ -370,10 +370,9 @@ const ProfilePage = () => {
                   <div className="flex items-center space-x-2">
                     <input
                       type="number"
-                      min="0"
                       value={cashInput}
                       onChange={(e) => setCashInput(e.target.value)}
-                      placeholder="Enter Cash Amount"
+                      placeholder="Enter Cash Amount (+/-)"
                       className="flex-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-300 focus:outline-none"
                       disabled={isCashLoading}
                     />
@@ -427,10 +426,9 @@ const ProfilePage = () => {
                     <label className="mb-1 text-sm text-gray-600">Weight (gms)</label>
                     <input
                       type="number"
-                      min="0"
                       value={weight}
                       onChange={(e) => setWeight(e.target.value)}
-                      placeholder="Enter Weight"
+                      placeholder="Enter Weight (+/-)"
                       className="px-3 py-2 border rounded-md focus:ring-2 focus:ring-yellow-300 focus:outline-none"
                       disabled={isGoldLoading}
                     />
@@ -454,12 +452,12 @@ const ProfilePage = () => {
                     </select>
                   </div>
                 </div>
-                {calculatedGoldValue > 0 && (
+                {calculatedGoldValue !== 0 && (
                   <div className="p-3 mb-4 rounded-md bg-yellow-50">
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-yellow-700">Pure Gold Value:</span>
                       <span className="font-bold text-yellow-800">
-                        {calculatedGoldValue.toFixed(3)} gm
+                        {formatBalance(calculatedGoldValue, "gold")}
                       </span>
                     </div>
                   </div>
@@ -475,9 +473,9 @@ const ProfilePage = () => {
                   <div>
                     <p className="text-sm text-gray-500">Received</p>
                     <p className="text-2xl font-bold text-green-600">
-                      {calculatedGoldValue > 0
+                      {calculatedGoldValue !== 0
                         ? formatBalance(calculatedGoldValue, "gold")
-                        : "+ 0.000 gm"}
+                        : "0.000 gm CR"}
                     </p>
                   </div>
                   <div>

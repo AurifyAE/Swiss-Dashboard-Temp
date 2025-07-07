@@ -103,47 +103,6 @@ const TransactionHistory = ({ userId, onNewTransaction }) => {
     }
   }, [onNewTransaction, pagination.itemsPerPage]);
 
-  // Revert optimistic update if needed (called from ProfilePage on failure)
-  const revertTransaction = useCallback(() => {
-    if (pendingTransaction) {
-      setTransactions((prev) => prev.filter((t) => t._id !== pendingTransaction._id));
-      setSummary((prev) => {
-        const balanceType = pendingTransaction.balanceType.toLowerCase();
-        const isCredit = pendingTransaction.type === "CREDIT";
-        const amount = pendingTransaction.amount;
-
-        return {
-          ...prev,
-          [balanceType]: {
-            ...prev[balanceType],
-            totalCredits: isCredit
-              ? prev[balanceType].totalCredits - amount
-              : prev[balanceType].totalCredits,
-            totalDebits: isCredit
-              ? prev[balanceType].totalDebits
-              : prev[balanceType].totalDebits - amount,
-            netFlow: prev[balanceType].netFlow - (isCredit ? amount : -amount),
-          },
-        };
-      });
-
-      setBalanceInfo((prev) => ({
-        ...prev,
-        [pendingTransaction.balanceType === "GOLD" ? "totalGoldBalance" : "cashBalance"]:
-          prev[pendingTransaction.balanceType === "GOLD" ? "totalGoldBalance" : "cashBalance"] -
-          (pendingTransaction.type === "CREDIT" ? pendingTransaction.amount : -pendingTransaction.amount),
-      }));
-
-      setPagination((prev) => ({
-        ...prev,
-        totalItems: prev.totalItems - 1,
-        totalPages: Math.ceil((prev.totalItems - 1) / prev.itemsPerPage),
-      }));
-
-      setPendingTransaction(null);
-    }
-  }, [pendingTransaction, pagination.itemsPerPage]);
-
   // Format date
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString("en-US", {
@@ -155,12 +114,15 @@ const TransactionHistory = ({ userId, onNewTransaction }) => {
     });
   };
 
-  // Format amount based on balance type
-  const formatAmount = (amount, balanceType) => {
-    if (balanceType === "GOLD") {
-      return `${Math.abs(amount).toFixed(3)} gm`;
-    }
-    return `${Math.abs(amount).toLocaleString()}`;
+  // Format amount with CR/DR
+  const formatAmount = (amount, balanceType, type) => {
+    const absAmount = Math.abs(amount);
+    const suffix = type === "CREDIT" ? " CR" : " DR";
+    return (
+      <span className={`font-bold ${type === "CREDIT" ? "text-green-600" : "text-red-600"}`}>
+        {balanceType === "GOLD" ? absAmount.toFixed(3) : absAmount.toLocaleString()} {balanceType === "GOLD" ? "gm" : ""}{suffix}
+      </span>
+    );
   };
 
   // Render loading state
@@ -222,13 +184,13 @@ const TransactionHistory = ({ userId, onNewTransaction }) => {
             <div className="flex justify-between">
               <span className="text-sm text-gray-600">Total Credits:</span>
               <span className="font-bold text-green-600">
-                {summary.cash.totalCredits.toLocaleString()}
+                {summary.cash.totalCredits.toLocaleString()} CR
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-gray-600">Total Debits:</span>
               <span className="font-bold text-red-600">
-                {summary.cash.totalDebits.toLocaleString()}
+                {summary.cash.totalDebits.toLocaleString()} DR
               </span>
             </div>
             <div className="flex justify-between">
@@ -238,8 +200,7 @@ const TransactionHistory = ({ userId, onNewTransaction }) => {
                   summary.cash.netFlow >= 0 ? "text-green-600" : "text-red-600"
                 }`}
               >
-                {summary.cash.netFlow >= 0 ? "+" : ""}
-                {summary.cash.netFlow.toLocaleString()}
+                {Math.abs(summary.cash.netFlow).toLocaleString()} {summary.cash.netFlow >= 0 ? "CR" : "DR"}
               </span>
             </div>
             <div className="flex justify-between">
@@ -251,8 +212,7 @@ const TransactionHistory = ({ userId, onNewTransaction }) => {
                     : "text-red-600"
                 }`}
               >
-                {balanceInfo.cashBalance >= 0 ? "+" : ""}
-                {balanceInfo.cashBalance.toLocaleString()}
+                {Math.abs(balanceInfo.cashBalance).toLocaleString()} {balanceInfo.cashBalance >= 0 ? "CR" : "DR"}
               </span>
             </div>
           </div>
@@ -285,13 +245,13 @@ const TransactionHistory = ({ userId, onNewTransaction }) => {
             <div className="flex justify-between">
               <span className="text-sm text-gray-600">Total Credits:</span>
               <span className="font-bold text-green-600">
-                {summary.gold.totalCredits.toFixed(3)} gm
+                {summary.gold.totalCredits.toFixed(3)} gm CR
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-gray-600">Total Debits:</span>
               <span className="font-bold text-red-600">
-                {summary.gold.totalDebits.toFixed(3)} gm
+                {summary.gold.totalDebits.toFixed(3)} gm DR
               </span>
             </div>
             <div className="flex justify-between">
@@ -301,8 +261,7 @@ const TransactionHistory = ({ userId, onNewTransaction }) => {
                   summary.gold.netFlow >= 0 ? "text-green-600" : "text-red-600"
                 }`}
               >
-                {summary.gold.netFlow >= 0 ? "+" : ""}
-                {summary.gold.netFlow.toFixed(3)} gm
+                {Math.abs(summary.gold.netFlow).toFixed(3)} gm {summary.gold.netFlow >= 0 ? "CR" : "DR"}
               </span>
             </div>
             <div className="flex justify-between">
@@ -314,8 +273,7 @@ const TransactionHistory = ({ userId, onNewTransaction }) => {
                     : "text-red-600"
                 }`}
               >
-                {balanceInfo.totalGoldBalance >= 0 ? "+" : ""}
-                {balanceInfo.totalGoldBalance.toFixed(3)} gm
+                {Math.abs(balanceInfo.totalGoldBalance).toFixed(3)} gm {balanceInfo.totalGoldBalance >= 0 ? "CR" : "DR"}
               </span>
             </div>
           </div>
@@ -380,17 +338,14 @@ const TransactionHistory = ({ userId, onNewTransaction }) => {
                   <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
                     {transaction.method}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                    {transaction.type === "CREDIT" ? "+" : "-"}
-                    {formatAmount(transaction.amount, transaction.balanceType)}
+                  <td className="px-6 py-4 text-sm whitespace-nowrap">
+                    {formatAmount(transaction.amount, transaction.balanceType, transaction.type)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
                     {transaction.balanceType}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                    {transaction.balanceType === "GOLD"
-                      ? `${transaction.balanceAfter.toFixed(3)} gm`
-                      : transaction.balanceAfter.toLocaleString()}
+                  <td className="px-6 py-4 text-sm whitespace-nowrap">
+                    {formatAmount(transaction.balanceAfter, transaction.balanceType, transaction.balanceAfter >= 0 ? "CREDIT" : "DEBIT")}
                   </td>
                 </tr>
               ))
