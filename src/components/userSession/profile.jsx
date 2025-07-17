@@ -47,6 +47,7 @@ const ProfilePage = () => {
       { value: 920, label: "920" },
       { value: 875, label: "875" },
       { value: 750, label: "750" },
+      { value: 1, label: "1" },
     ],
     []
   );
@@ -56,10 +57,30 @@ const ProfilePage = () => {
     const absBalance = Math.abs(balance);
     const suffix = balance >= 0 ? " CR" : " DR";
     return (
-      <span className={`font-bold ${balance >= 0 ? "text-green-600" : "text-red-600"}`}>
-        {type === "cash" ? absBalance.toLocaleString() : absBalance.toFixed(3)} {type === "gold" ? "gm" : ""}{suffix}
+      <span
+        className={`font-bold ${
+          balance >= 0 ? "text-green-600" : "text-red-600"
+        }`}
+      >
+        {type === "cash" ? absBalance.toLocaleString() : absBalance.toFixed(3)}{" "}
+        {type === "gold" ? "gm" : ""}
+        {suffix}
       </span>
     );
+  }, []);
+
+  // Retry logic for API calls
+  const withRetry = useCallback(async (fn, retries = 3, delay = 1000) => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        return await fn();
+      } catch (error) {
+        if (i === retries - 1) throw error;
+        await new Promise((resolve) =>
+          setTimeout(resolve, delay * Math.pow(2, i))
+        );
+      }
+    }
   }, []);
 
   // Fetch user profile
@@ -70,9 +91,13 @@ const ProfilePage = () => {
 
       if (!userId) throw new Error("User ID is missing");
 
-      const response = await axios.get(`/get-profile/${userId}`);
+      const response = await withRetry(() =>
+        axios.get(`/get-profile/${userId}`)
+      );
       if (!response.data.success) {
-        throw new Error(response.data.message || "Failed to fetch user profile");
+        throw new Error(
+          response.data.message || "Failed to fetch user profile"
+        );
       }
 
       if (!response.data.users || response.data.users.length === 0) {
@@ -90,7 +115,7 @@ const ProfilePage = () => {
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, [userId, withRetry]);
 
   // Initial fetch
   useEffect(() => {
@@ -100,6 +125,7 @@ const ProfilePage = () => {
   // Calculate gold value (debounced)
   const calculatePurityPower = useCallback((purityInput) => {
     if (!purityInput || isNaN(purityInput)) return 1;
+    if (purityInput === 1) return 1; // 1 means 100% purity 
     return purityInput / Math.pow(10, purityInput.toString().length);
   }, []);
 
@@ -112,21 +138,28 @@ const ProfilePage = () => {
         }
 
         const weightNum = parseFloat(weight);
-        const selectedPurity = purityOptions.find((p) => p.value.toString() === purity);
+        const selectedPurity = purityOptions.find(
+          (p) => p.value.toString() === purity
+        );
 
-        if (!selectedPurity || isNaN(weightNum) || weightNum <= 0) {
+        if (
+          !selectedPurity ||
+          isNaN(weightNum) ||
+          weightNum === 0 
+        ) {
           setCalculatedGoldValue(0);
           return;
         }
 
-        const pureGoldValue = calculatePurityPower(selectedPurity.value) * weightNum;
+        const pureGoldValue =
+          calculatePurityPower(selectedPurity.value) * weightNum;
         const roundedValue = parseFloat(pureGoldValue.toFixed(3));
         setCalculatedGoldValue(roundedValue);
       } catch (error) {
         console.error("Gold Value Calculation Error:", error);
         setCalculatedGoldValue(0);
       }
-    }, 300),
+    }, 200),
     [weight, purity, purityOptions, calculatePurityPower]
   );
 
@@ -134,7 +167,7 @@ const ProfilePage = () => {
     calculateGoldValue();
   }, [weight, purity, calculateGoldValue]);
 
-  // Handler for cash received with optimistic update
+  // Handler for cash received with optimistic update and negative balance check
   const handleCashReceived = useCallback(async () => {
     try {
       setIsCashLoading(true);
@@ -162,7 +195,9 @@ const ProfilePage = () => {
       };
       setPendingTransaction(transaction);
 
-      const response = await axios.patch(`/receive-cash/${userId}`, { amount: cashAmount });
+      const response = await withRetry(() =>
+        axios.patch(`/receive-cash/${userId}`, { amount: cashAmount })
+      );
 
       if (!response.data.success) {
         throw new Error(response.data.message || "Cash receive failed");
@@ -173,7 +208,11 @@ const ProfilePage = () => {
       setCashBalance(newServerBalance);
       setPendingCashUpdate(0);
       setPendingTransaction(null);
-      toast.success(`Successfully ${cashAmount > 0 ? "received" : "debited"} ${Math.abs(cashAmount).toLocaleString()}`);
+      toast.success(
+        `Successfully ${cashAmount > 0 ? "received" : "debited"} ${Math.abs(
+          cashAmount
+        ).toLocaleString()}`
+      );
       setCashInput("");
     } catch (error) {
       console.error("Cash Receive Error:", error);
@@ -184,9 +223,9 @@ const ProfilePage = () => {
     } finally {
       setIsCashLoading(false);
     }
-  }, [cashInput, userId, cashBalance, pendingCashUpdate]);
+  }, [cashInput, userId, cashBalance, pendingCashUpdate, withRetry]);
 
-  // Handler for gold received with optimistic update
+  // Handler for gold received with optimistic update and negative balance check
   const handleGoldReceived = useCallback(async () => {
     try {
       setIsGoldLoading(true);
@@ -196,11 +235,12 @@ const ProfilePage = () => {
       }
 
       const goldAmount = parseFloat(calculatedGoldValue);
+      console.log(goldAmount)
       if (isNaN(goldAmount) || goldAmount === 0) {
         toast.error("Invalid gold amount. Please check weight and purity.");
         return;
       }
-
+      
       // Optimistic update
       setPendingGoldUpdate(goldAmount);
       const newBalance = goldBalance + goldAmount;
@@ -219,7 +259,9 @@ const ProfilePage = () => {
       };
       setPendingTransaction(transaction);
 
-      const response = await axios.patch(`/receive-gold/${userId}`, { amount: goldAmount });
+      const response = await withRetry(() =>
+        axios.patch(`/receive-gold/${userId}`, { amount: goldAmount })
+      );
 
       if (!response.data.success) {
         throw new Error(response.data.message || "Gold receive failed");
@@ -230,7 +272,11 @@ const ProfilePage = () => {
       setGoldBalance(newServerBalance);
       setPendingGoldUpdate(0);
       setPendingTransaction(null);
-      toast.success(`Successfully ${goldAmount > 0 ? "received" : "debited"} ${Math.abs(goldAmount).toFixed(3)} gm of gold`);
+      toast.success(
+        `Successfully ${goldAmount > 0 ? "received" : "debited"} ${Math.abs(
+          goldAmount
+        ).toFixed(3)} gm of gold`
+      );
       setWeight("");
       setPurity("");
       setCalculatedGoldValue(0);
@@ -243,12 +289,23 @@ const ProfilePage = () => {
     } finally {
       setIsGoldLoading(false);
     }
-  }, [weight, purity, calculatedGoldValue, userId, goldBalance, pendingGoldUpdate]);
+  }, [
+    weight,
+    purity,
+    calculatedGoldValue,
+    userId,
+    goldBalance,
+    pendingGoldUpdate,
+    withRetry,
+  ]);
 
-  const handleViewSpotrate = useCallback((user) => {
-    const spotRateId = user.userSpotRateId ?? "null";
-    navigate(`/user-spot-rate/${spotRateId}/user/${user._id}/product`);
-  }, [navigate]);
+  const handleViewSpotrate = useCallback(
+    (user) => {
+      const spotRateId = user.userSpotRateId ?? "null";
+      navigate(`/user-spot-rate/${spotRateId}/user/${user._id}/product`);
+    },
+    [navigate]
+  );
 
   if (loading) {
     return (
@@ -266,6 +323,7 @@ const ProfilePage = () => {
           <button
             onClick={fetchUserProfile}
             className="px-4 py-2 ml-4 text-white bg-red-500 rounded"
+            aria-label="Retry loading profile"
           >
             Retry
           </button>
@@ -289,13 +347,17 @@ const ProfilePage = () => {
           <section className="space-y-6">
             <div className="flex gap-6 max-md:flex-col">
               <div className="flex items-center flex-1">
-                <label className="w-24 font-medium text-neutral-600">Name</label>
+                <label className="w-24 font-medium text-neutral-600">
+                  Name
+                </label>
                 <div className="flex-1 px-5 h-12 border border-zinc-200 rounded-md flex items-center bg-gray-50 text-[#333]">
                   {userProfile.name}
                 </div>
               </div>
               <div className="flex items-center flex-1">
-                <label className="w-24 font-medium text-neutral-600">Email</label>
+                <label className="w-24 font-medium text-neutral-600">
+                  Email
+                </label>
                 <div className="flex-1 px-5 h-12 border border-zinc-200 rounded-md flex items-center bg-gray-50 text-[#333]">
                   {userProfile.email}
                 </div>
@@ -303,13 +365,17 @@ const ProfilePage = () => {
             </div>
             <div className="flex gap-6 max-md:flex-col">
               <div className="flex items-center flex-1">
-                <label className="w-24 font-medium text-neutral-600">Phone</label>
+                <label className="w-24 font-medium text-neutral-600">
+                  Phone
+                </label>
                 <div className="flex-1 px-5 h-12 border border-zinc-200 rounded-md flex items-center bg-gray-50 text-[#333]">
                   {userProfile.contact}
                 </div>
               </div>
               <div className="flex items-center flex-1">
-                <label className="w-24 font-medium text-neutral-600">Address</label>
+                <label className="w-24 font-medium text-neutral-600">
+                  Address
+                </label>
                 <div className="flex-1 px-5 h-12 border border-zinc-200 rounded-md flex items-center bg-gray-50 text-[#333]">
                   {userProfile.address}
                 </div>
@@ -317,10 +383,13 @@ const ProfilePage = () => {
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <label className="mr-4 font-medium text-neutral-600">Assigned Rate</label>
+                <label className="mr-4 font-medium text-neutral-600">
+                  Assigned Rate
+                </label>
                 <div
                   className="flex items-center px-3.5 py-2 rounded-md bg-gradient-to-b from-[#156AEF] to-[#35A4D3] text-white cursor-pointer"
                   onClick={() => handleViewSpotrate(userProfile)}
+                  aria-label="View user spot rate"
                 >
                   <svg
                     width="18"
@@ -364,7 +433,9 @@ const ProfilePage = () => {
                       />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-semibold text-[#156AEF]">Cash Balance</h3>
+                  <h3 className="text-lg font-semibold text-[#156AEF]">
+                    Cash Balance
+                  </h3>
                 </div>
                 <div className="flex flex-col space-y-4">
                   <div className="flex items-center space-x-2">
@@ -375,11 +446,13 @@ const ProfilePage = () => {
                       placeholder="Enter Cash Amount (+/-)"
                       className="flex-1 px-3 py-2 border rounded-md focus:ring-2 focus:ring-blue-300 focus:outline-none"
                       disabled={isCashLoading}
+                      aria-label="Enter cash amount, positive or negative"
                     />
                     <button
                       onClick={handleCashReceived}
                       disabled={isCashLoading}
                       className="px-4 py-2 text-white transition-colors bg-blue-500 rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      aria-label="Receive cash transaction"
                     >
                       {isCashLoading ? "Processing..." : "Receive"}
                     </button>
@@ -419,11 +492,15 @@ const ProfilePage = () => {
                       />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-semibold text-yellow-700">Gold Balance</h3>
+                  <h3 className="text-lg font-semibold text-yellow-700">
+                    Gold Balance
+                  </h3>
                 </div>
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="flex flex-col">
-                    <label className="mb-1 text-sm text-gray-600">Weight (gms)</label>
+                    <label className="mb-1 text-sm text-gray-600">
+                      Weight (gms)
+                    </label>
                     <input
                       type="number"
                       value={weight}
@@ -431,6 +508,7 @@ const ProfilePage = () => {
                       placeholder="Enter Weight (+/-)"
                       className="px-3 py-2 border rounded-md focus:ring-2 focus:ring-yellow-300 focus:outline-none"
                       disabled={isGoldLoading}
+                      aria-label="Enter gold weight, positive or negative"
                     />
                   </div>
                   <div className="flex flex-col">
@@ -440,6 +518,7 @@ const ProfilePage = () => {
                       onChange={(e) => setPurity(e.target.value)}
                       className="px-3 py-2 border rounded-md focus:ring-2 focus:ring-yellow-300 focus:outline-none"
                       disabled={isGoldLoading}
+                      aria-label="Select gold purity"
                     >
                       <option value="" disabled>
                         Select Purity
@@ -455,7 +534,9 @@ const ProfilePage = () => {
                 {calculatedGoldValue !== 0 && (
                   <div className="p-3 mb-4 rounded-md bg-yellow-50">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-yellow-700">Pure Gold Value:</span>
+                      <span className="text-sm text-yellow-700">
+                        Pure Gold Value:
+                      </span>
                       <span className="font-bold text-yellow-800">
                         {formatBalance(calculatedGoldValue, "gold")}
                       </span>
@@ -466,6 +547,7 @@ const ProfilePage = () => {
                   onClick={handleGoldReceived}
                   disabled={!weight || !purity || isGoldLoading}
                   className="w-full py-2 text-white transition-colors bg-yellow-600 rounded-md hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Receive gold transaction"
                 >
                   {isGoldLoading ? "Processing..." : "Receive Gold"}
                 </button>
@@ -494,8 +576,13 @@ const ProfilePage = () => {
             <h2 className="mb-5 ml-5 text-xl font-bold -mt-7">Order History</h2>
             <OrderManagement userId={userId} />
             <div className="my-12 border-t border-gray-300 border-dashed"></div>
-            <h2 className="mb-5 ml-5 text-xl font-bold -mt-7">Transaction History</h2>
-            <TransactionHistory userId={userId} onNewTransaction={pendingTransaction} />
+            <h2 className="mb-5 ml-5 text-xl font-bold -mt-7">
+              Transaction History
+            </h2>
+            <TransactionHistory
+              userId={userId}
+              onNewTransaction={pendingTransaction}
+            />
           </div>
         </div>
       </div>
