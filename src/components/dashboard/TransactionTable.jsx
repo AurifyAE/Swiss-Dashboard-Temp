@@ -73,6 +73,8 @@ const downloadSingleTransactionPDF = async (transaction, products) => {
   }
 };
 
+const adminId =
+    typeof window !== "undefined" ? localStorage.getItem("adminId") : null;
 // Transaction Header Component
 const TransactionHeader = ({ sortConfig, onSort, className = "" }) => {
   const headers = [
@@ -91,7 +93,7 @@ const TransactionHeader = ({ sortConfig, onSort, className = "" }) => {
       {headers.map((header) => (
         <div
           key={header.key}
-          className="flex items-center cursor-pointer gap-2"
+          className="flex items-center gap-2 cursor-pointer"
           onClick={() => onSort(header.key)}
         >
           {header.label}
@@ -423,7 +425,7 @@ const TransactionRow = ({
       setShowDropdown(false);
 
       try {
-        await axiosInstance.put(`/update-order/${orderId}`, {
+        await axiosInstance.put(`/update-order/${orderId}/${adminId}`, {
           orderStatus: newStatus,
         });
         toast.success("Status updated successfully", { id: toastId });
@@ -494,7 +496,7 @@ const TransactionRow = ({
 
   const handleApproval = useCallback(
     async (product) => {
-      if (product.quantity >= 1) {
+      if (product.quantity != 1) {
         setModal({ type: "quantity", data: { orderId, product } });
         setQuantity(product.quantity);
         return;
@@ -502,7 +504,7 @@ const TransactionRow = ({
 
       const toastId = toast.loading("Processing approval...");
       try {
-        await axiosInstance.put(`/update-order-quantity/${orderId}`, {
+        await axiosInstance.put(`/update-order-quantity/${orderId}/${adminId}`, {
           itemStatus: "Approved",
           itemId: product.itemId,
           fixedPrice: product.amount,
@@ -537,7 +539,7 @@ const TransactionRow = ({
     const { orderId, product } = modal.data;
     const toastId = toast.loading("Updating quantity...");
     try {
-      await axiosInstance.put(`/update-order-quantity/${orderId}`, {
+      await axiosInstance.put(`/update-order-quantity/${orderId}/${adminId}`, {
         itemStatus: "User Approval Pending",
         itemId: product.itemId,
         fixedPrice: product.amount,
@@ -589,7 +591,7 @@ const TransactionRow = ({
     !["approved", "rejected"].includes(productStatus.toLowerCase());
 
   return (
-    <div className="last:border-b-0 bg-white relative">
+    <div className="relative bg-white last:border-b-0">
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 items-center px-4 md:px-6 lg:px-12 py-4 hover:bg-[#F1FCFF] transition-colors">
         <div className="flex items-center col-span-2 md:col-span-1">
           <button
@@ -601,8 +603,8 @@ const TransactionRow = ({
           </button>
           <span className="truncate">{id}</span>
         </div>
-        <div className="hidden md:block truncate">{date}</div>
-        <div className="hidden md:block truncate">{paymentMethod}</div>
+        <div className="hidden truncate md:block">{date}</div>
+        <div className="hidden truncate md:block">{paymentMethod}</div>
         <div className="relative" style={{ zIndex: showDropdown ? 40 : 20 }}>
           {dashboard ? (
             <div
@@ -642,7 +644,7 @@ const TransactionRow = ({
               {showDropdown && (
                 <ul
                   ref={dropdownRef}
-                  className="absolute left-0 mt-1 w-40 bg-white shadow-lg border rounded-md text-sm z-50 overflow-visible"
+                  className="absolute left-0 z-50 w-40 mt-1 overflow-visible text-sm bg-white border rounded-md shadow-lg"
                   role="menu"
                 >
                   {[
@@ -670,10 +672,10 @@ const TransactionRow = ({
             </>
           )}
         </div>
-        <div className="hidden lg:block truncate">
+        <div className="hidden truncate lg:block">
           {totalWeight.toFixed(2)} g
         </div>
-        <div className="font-semibold hidden md:block">
+        <div className="hidden font-semibold md:block">
           AED {typeof amount === "number" ? amount.toLocaleString() : amount}
         </div>
         <div className="flex items-center justify-end gap-2">
@@ -787,7 +789,7 @@ const TransactionRow = ({
                         {shouldShowRejectButton(product.status) && (
                           <button
                             onClick={() => handleProductRejection(product)}
-                            className="bg-red-100 text-red-600 px-3 py-1 rounded-md shadow-lg hover:bg-red-200 transition-colors"
+                            className="px-3 py-1 text-red-600 transition-colors bg-red-100 rounded-md shadow-lg hover:bg-red-200"
                           >
                             Reject
                           </button>
@@ -807,21 +809,21 @@ const TransactionRow = ({
       )}
 
       {modal.type === "remark" && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full">
-            <h3 className="text-lg font-medium mb-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="w-full max-w-md p-6 bg-white rounded-lg">
+            <h3 className="mb-4 text-lg font-medium">
               {modal.data.product ? "Reject Product" : "Reject Order"}
             </h3>
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Remarks</label>
+              <label className="block mb-1 text-sm font-medium">Remarks</label>
               <textarea
-                className="w-full border border-gray-300 rounded p-2"
+                className="w-full p-2 border border-gray-300 rounded"
                 rows="4"
                 value={remark}
                 onChange={(e) => setRemark(e.target.value)}
                 placeholder="Enter reason for rejection"
               />
-              {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+              {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
             </div>
             <div className="flex justify-end space-x-3">
               <button
@@ -835,7 +837,7 @@ const TransactionRow = ({
                 Cancel
               </button>
               <button
-                className="px-4 py-2 bg-red-600 text-white rounded"
+                className="px-4 py-2 text-white bg-red-600 rounded"
                 onClick={handleRemarkSubmit}
               >
                 Submit
@@ -846,19 +848,19 @@ const TransactionRow = ({
       )}
 
       {modal.type === "quantity" && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white p-6 rounded-lg max-w-md w-full">
-            <h3 className="text-lg font-medium mb-4">Update Quantity</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="w-full max-w-md p-6 bg-white rounded-lg">
+            <h3 className="mb-4 text-lg font-medium">Update Quantity</h3>
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Quantity</label>
+              <label className="block mb-1 text-sm font-medium">Quantity</label>
               <input
                 type="number"
-                className="w-full border border-gray-300 rounded p-2"
+                className="w-full p-2 border border-gray-300 rounded"
                 value={quantity}
                 onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
                 min="1"
               />
-              {error && <p className="text-red-500 text-sm mt-1">{error}</p>}
+              {error && <p className="mt-1 text-sm text-red-500">{error}</p>}
             </div>
             <div className="flex justify-end space-x-3">
               <button
@@ -898,13 +900,13 @@ const PaginationControls = ({
   const endItem = Math.min(startItem + rowsPerPage - 1, totalItems);
 
   return (
-    <div className="flex flex-col sm:flex-row justify-between items-center px-6 py-4 bg-gray-100 gap-4 rounded-b-2xl">
+    <div className="flex flex-col items-center justify-between gap-4 px-6 py-4 bg-gray-100 sm:flex-row rounded-b-2xl">
       <div className="flex items-center gap-2 text-sm text-gray-600">
         <span>Rows per page:</span>
         <select
           value={rowsPerPage}
           onChange={(e) => onRowsPerPageChange(Number(e.target.value))}
-          className="border rounded-md px-2 py-1 bg-white"
+          className="px-2 py-1 bg-white border rounded-md"
         >
           {rowsPerPageOptions.map((option) => (
             <option key={option} value={option}>
@@ -959,8 +961,7 @@ const TransactionTable = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const adminId =
-    typeof window !== "undefined" ? localStorage.getItem("adminId") : null;
+  
 
   const fetchOrders = useCallback(async () => {
     if (!adminId) {
@@ -1207,9 +1208,9 @@ const TransactionTable = ({
   TransactionTable.exportAllToPDF = handleExportAllToPDF;
 
   return (
-    <div className="w-full relative z-0">
+    <div className="relative z-0 w-full">
       {error && (
-        <div className="p-4 mb-4 bg-red-100 text-red-700 rounded-md">
+        <div className="p-4 mb-4 text-red-700 bg-red-100 rounded-md">
           {error}
         </div>
       )}
