@@ -74,12 +74,14 @@ const downloadSingleTransactionPDF = async (transaction, products) => {
 };
 
 const adminId =
-    typeof window !== "undefined" ? localStorage.getItem("adminId") : null;
+  typeof window !== "undefined" ? localStorage.getItem("adminId") : null;
+
 // Transaction Header Component
 const TransactionHeader = ({ sortConfig, onSort, className = "" }) => {
   const headers = [
     { key: "id", label: "Transaction ID" },
     { key: "date", label: "Delivery Date" },
+    { key: "customer", label: "Customer" },
     { key: "paymentMethod", label: "Payment Method" },
     { key: "status", label: "Status" },
     { key: "totalWeight", label: "Total Weight" },
@@ -88,7 +90,7 @@ const TransactionHeader = ({ sortConfig, onSort, className = "" }) => {
 
   return (
     <header
-      className={`grid grid-cols-7 items-center px-12 py-4 bg-gradient-to-r from-[#32B4DB] to-[#156AEF] text-md font-semibold text-white ${className}`}
+      className={`grid grid-cols-8 items-center px-12 py-4 bg-gradient-to-r from-[#32B4DB] to-[#156AEF] text-md font-semibold text-white ${className}`}
     >
       {headers.map((header) => (
         <div
@@ -105,7 +107,6 @@ const TransactionHeader = ({ sortConfig, onSort, className = "" }) => {
             ))}
         </div>
       ))}
-      <div>Customers</div>
     </header>
   );
 };
@@ -379,7 +380,7 @@ const TransactionRow = ({
   expanded,
   onToggleExpand,
   dashboard = false,
-  onUpdate, // New prop to handle updates
+  onUpdate,
 }) => {
   const {
     orderId,
@@ -429,7 +430,6 @@ const TransactionRow = ({
           orderStatus: newStatus,
         });
         toast.success("Status updated successfully", { id: toastId });
-        // Call onUpdate with updated transaction data
         onUpdate({
           ...transaction,
           status: newStatus,
@@ -455,12 +455,10 @@ const TransactionRow = ({
 
     try {
       if (modal.data.product && modal.data.product.itemId) {
-        // Reject a specific item
         await axiosInstance.patch(
           `/orders/${modal.data.orderId}/items/${modal.data.product.itemId}/reject`
         );
         toast.success("Item rejected", { id: toastId });
-        // Update product status in transaction
         const updatedProducts = products.map((p) =>
           p.itemId === modal.data.product.itemId
             ? { ...p, status: "Rejected" }
@@ -471,7 +469,6 @@ const TransactionRow = ({
           products: updatedProducts,
         });
       } else {
-        // Reject the entire order
         await axiosInstance.put(`/update-order-reject/${modal.data.orderId}`, {
           orderStatus: "Rejected",
           remark,
@@ -504,14 +501,16 @@ const TransactionRow = ({
 
       const toastId = toast.loading("Processing approval...");
       try {
-        await axiosInstance.put(`/update-order-quantity/${orderId}/${adminId}`, {
-          itemStatus: "Approved",
-          itemId: product.itemId,
-          fixedPrice: product.amount,
-          quantity: product.quantity,
-        });
+        await axiosInstance.put(
+          `/update-order-quantity/${orderId}/${adminId}`,
+          {
+            itemStatus: "Approved",
+            itemId: product.itemId,
+            fixedPrice: product.amount,
+            quantity: product.quantity,
+          }
+        );
         toast.success("Order approved", { id: toastId });
-        // Update product status in transaction
         const updatedProducts = products.map((p) =>
           p.itemId === product.itemId ? { ...p, status: "Approved" } : p
         );
@@ -546,7 +545,6 @@ const TransactionRow = ({
         quantity,
       });
       toast.success("Quantity updated", { id: toastId });
-      // Update product quantity and status in transaction
       const updatedProducts = products.map((p) =>
         p.itemId === product.itemId
           ? { ...p, quantity, status: "User Approval Pending" }
@@ -564,7 +562,6 @@ const TransactionRow = ({
     }
   }, [modal.data, quantity, transaction, products, onUpdate]);
 
-  // Handle click outside to close dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (
@@ -592,7 +589,7 @@ const TransactionRow = ({
 
   return (
     <div className="relative bg-white last:border-b-0">
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 items-center px-4 md:px-6 lg:px-12 py-4 hover:bg-[#F1FCFF] transition-colors">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 items-center px-4 md:px-6 lg:px-12 py-4 hover:bg-[#F1FCFF] transition-colors">
         <div className="flex items-center col-span-2 md:col-span-1">
           <button
             onClick={onToggleExpand}
@@ -604,6 +601,7 @@ const TransactionRow = ({
           <span className="truncate">{id}</span>
         </div>
         <div className="hidden truncate md:block">{date}</div>
+        <div className="hidden truncate md:block">{customer.name}</div>
         <div className="hidden truncate md:block">{paymentMethod}</div>
         <div className="relative" style={{ zIndex: showDropdown ? 40 : 20 }}>
           {dashboard ? (
@@ -886,7 +884,7 @@ const TransactionRow = ({
   );
 };
 
-// Pagination Controls Component
+// Paganation Controls Component
 const PaginationControls = ({
   currentPage,
   totalPages,
@@ -947,6 +945,7 @@ const TransactionTable = ({
   timeFilter = "This Week",
   statusFilter = null,
   searchQuery = "",
+  customerFilter = "", // New prop for customer name filter
   className = "",
   dashboard = false,
 }) => {
@@ -955,13 +954,11 @@ const TransactionTable = ({
   const [expandedRowId, setExpandedRowId] = useState(null);
   const [sortConfig, setSortConfig] = useState({
     key: "date",
-    direction: "desc", // Default sorting remains descending
+    direction: "desc",
   });
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
-  
 
   const fetchOrders = useCallback(async () => {
     if (!adminId) {
@@ -978,7 +975,7 @@ const TransactionTable = ({
       const transformedOrders = newOrders.map((order) => {
         const customerData = {
           id: order.customer?.id || order.userId || "N/A",
-          name: order.customer?.name || order.userName || "N/A",
+          name: order.customer?.name || order.userName || "Unknown Customer",
           email: order.customer?.email || order.userEmail || "N/A",
           contact: String(
             order.customer?.contact || order.userPhone || order.phone || "N/A"
@@ -1013,17 +1010,14 @@ const TransactionTable = ({
             };
           }) || [];
 
-        // Get timestamp from multiple possible sources
         let timestamp;
         if (order.createdAt) {
           timestamp = new Date(order.createdAt).getTime();
         } else if (order.orderDate) {
           timestamp = new Date(order.orderDate).getTime();
         } else if (order._id && order._id.length >= 8) {
-          // MongoDB ObjectIDs contain a timestamp in the first 4 bytes
           timestamp = parseInt(order._id.substring(0, 8), 16) * 1000;
         } else {
-          // Fallback timestamp
           timestamp = 0;
         }
 
@@ -1036,7 +1030,7 @@ const TransactionTable = ({
           date: order.orderDate
             ? new Date(order.orderDate).toLocaleDateString()
             : "N/A",
-          timestamp: timestamp, // Store numerical timestamp for reliable sorting
+          timestamp: timestamp,
           paymentMethod: order.paymentMethod || "N/A",
           status: order.orderStatus || "N/A",
           pricingOption: order.pricingScheme || "N/A",
@@ -1044,12 +1038,10 @@ const TransactionTable = ({
           totalWeight: order.totalWeight || 0,
           customer: customerData,
           products: orderProducts,
-          // Store original data for debugging
           _originalOrder: order,
         };
       });
 
-      // Sort orders in LIFO (Last In, First Out) order using timestamps
       const sortedOrders = transformedOrders.sort(
         (a, b) => b.timestamp - a.timestamp
       );
@@ -1069,7 +1061,6 @@ const TransactionTable = ({
     fetchOrders();
   }, [fetchOrders]);
 
-  // Handle transaction updates
   const handleTransactionUpdate = useCallback((updatedTransaction) => {
     setOrders((prevOrders) =>
       prevOrders.map((order) =>
@@ -1094,6 +1085,12 @@ const TransactionTable = ({
         !statusFilter ||
         transaction.status.toLowerCase() === statusFilter.toLowerCase() ||
         statusFilter === "All Orders";
+
+      const isCustomerMatch =
+        !customerFilter ||
+        transaction.customer?.name
+          ?.toLowerCase()
+          .includes(customerFilter.toLowerCase());
 
       const isSearchMatch =
         !searchQuery ||
@@ -1129,9 +1126,9 @@ const TransactionTable = ({
           .toLowerCase()
           .includes(searchQuery.toLowerCase());
 
-      return isTimeMatch && isStatusMatch && isSearchMatch;
+      return isTimeMatch && isStatusMatch && isCustomerMatch && isSearchMatch;
     });
-  }, [orders, timeFilter, statusFilter, searchQuery]);
+  }, [orders, timeFilter, statusFilter, customerFilter, searchQuery]);
 
   const sortedTransactions = useMemo(() => {
     if (sortConfig.key === "date") {
@@ -1141,8 +1138,14 @@ const TransactionTable = ({
       });
     }
     return [...filteredTransactions].sort((a, b) => {
-      const aValue = a[sortConfig.key];
-      const bValue = b[sortConfig.key];
+      let aValue = a[sortConfig.key];
+      let bValue = b[sortConfig.key];
+
+      if (sortConfig.key === "customer") {
+        aValue = a.customer?.name || "";
+        bValue = b.customer?.name || "";
+      }
+
       if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
       if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
       return 0;
